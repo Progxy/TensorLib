@@ -8,6 +8,9 @@
 #define CAST_PTR(ptr, type) ((type*) (ptr))
 #define ASSERT(condition, err_msg) assert(condition, __LINE__, __FILE__, err_msg);
 #define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
+#define SUM_TENSOR(c, a, b) sum_tensor(c, a, b, FALSE)
+#define SUBTRACT_TENSOR(c, a, b) sum_tensor(c, a, b, TRUE)
+#define PRINT_TENSOR(tensor) print_tensor(tensor, #tensor)
 #define NOT_USED(var) (void) var
 #define MSG_MAX_LEN 512
 #define TRUE 1
@@ -75,9 +78,9 @@ void calc_space(unsigned int index, Tensor tensor) {
     return;
 }
 
-void print_tensor(Tensor tensor) {
+void print_tensor(Tensor tensor, char* tensor_name) {
     const unsigned int size = calc_tensor_size(tensor.shape, tensor.dim);
-    printf("DEBUG_INFO: Tensor with shape: [ ");
+    printf("DEBUG_INFO: Tensor '%s' has shape: [ ", tensor_name);
     for (unsigned int i = 0; i < tensor.dim; ++i) {
         printf("%u%c ", tensor.shape[i], i == (tensor.dim - 1) ? '\0' : ',');
     }
@@ -143,7 +146,7 @@ void reshape_tensor(Tensor* dest, Tensor base) {
     return;
 }
 
-Tensor sum_tensor(Tensor* c, Tensor a, Tensor b) {
+Tensor sum_tensor(Tensor* c, Tensor a, Tensor b, bool subtract_flag) {
     ASSERT(a.dim != b.dim, "DIM_MISMATCH");
     ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
     for (unsigned int i = 0; i < a.dim; ++i) {
@@ -153,10 +156,11 @@ Tensor sum_tensor(Tensor* c, Tensor a, Tensor b) {
     reshape_tensor(c, a);
     
     unsigned int size = calc_tensor_size(a.shape, a.dim);
+    const char invert = subtract_flag ? -1 : 1;
     for (unsigned int i = 0; i < size; ++i) {
-        if (a.data_type == FLOAT_32) CAST_PTR(c -> data, float)[i] = CAST_PTR(a.data, float)[i] + CAST_PTR(b.data, float)[i];
-        if (a.data_type == FLOAT_64) CAST_PTR(c -> data, double)[i] = CAST_PTR(a.data, double)[i] + CAST_PTR(b.data, double)[i];
-        if (a.data_type == FLOAT_128) CAST_PTR(c -> data, long double)[i] = CAST_PTR(a.data, long double)[i] + CAST_PTR(b.data, long double)[i];
+        if (a.data_type == FLOAT_32) CAST_PTR(c -> data, float)[i] = CAST_PTR(a.data, float)[i] + invert * CAST_PTR(b.data, float)[i];
+        if (a.data_type == FLOAT_64) CAST_PTR(c -> data, double)[i] = CAST_PTR(a.data, double)[i] + invert * CAST_PTR(b.data, double)[i];
+        if (a.data_type == FLOAT_128) CAST_PTR(c -> data, long double)[i] = CAST_PTR(a.data, long double)[i] + invert * CAST_PTR(b.data, long double)[i];
     }
 
     return *c;

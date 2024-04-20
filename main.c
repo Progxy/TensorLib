@@ -8,8 +8,10 @@ int main() {
     Tensor b = create_tensor(shape, ARR_SIZE(shape), FLOAT_32);
     randomize_tensor(b);
     Tensor c = create_tensor(shape, ARR_SIZE(shape), FLOAT_32);
-    sum_tensor(&c, a, b);
-    print_tensor(c);
+    SUM_TENSOR(&c, a, b);
+    PRINT_TENSOR(c);
+    SUBTRACT_TENSOR(&a, c, b);
+    PRINT_TENSOR(a);
     DEALLOCATE_TENSORS(a, b, c);
     return 0;
 }
