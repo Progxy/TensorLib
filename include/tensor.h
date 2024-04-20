@@ -4,13 +4,16 @@
 #include <time.h>
 #include <stdarg.h>
 
+#define CAST_AND_OP(a, b, c, index, type, op) CAST_PTR(c -> data, type)[index] = CAST_PTR(a.data, type)[index] op CAST_PTR(b.data, type)[index]; 
+#define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
+#define ASSERT(condition, err_msg) assert(condition, __LINE__, __FILE__, err_msg);
+#define PRINT_TENSOR(tensor) print_tensor(tensor, #tensor)
+#define SUBTRACT_TENSOR(c, a, b) op_tensor(c, a, b, SUBTRACTION)
+#define SUM_TENSOR(c, a, b) op_tensor(c, a, b, SUM)
+#define HADAMARD_PRODUCT(c, a, b) op_tensor(c, a, b, MULTIPLICATION)
+#define DIVIDE_TENSOR(c, a, b) op_tensor(c, a, b, DIVISION)
 #define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define CAST_PTR(ptr, type) ((type*) (ptr))
-#define ASSERT(condition, err_msg) assert(condition, __LINE__, __FILE__, err_msg);
-#define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
-#define SUM_TENSOR(c, a, b) sum_tensor(c, a, b, FALSE)
-#define SUBTRACT_TENSOR(c, a, b) sum_tensor(c, a, b, TRUE)
-#define PRINT_TENSOR(tensor) print_tensor(tensor, #tensor)
 #define NOT_USED(var) (void) var
 #define MSG_MAX_LEN 512
 #define TRUE 1
@@ -18,6 +21,8 @@
 
 typedef unsigned char bool;
 typedef enum DataType { FLOAT_32 = sizeof(float), FLOAT_64 = sizeof(double), FLOAT_128 = sizeof(long double) } DataType;
+typedef enum OperatorFlag { SUM, SUBTRACTION, MULTIPLICATION, DIVISION } OperatorFlag;
+
 typedef struct Tensor {
     unsigned int* shape;
     unsigned int dim;
@@ -26,6 +31,7 @@ typedef struct Tensor {
 } Tensor;
 
 const unsigned char data_types[] = { FLOAT_32, FLOAT_64, FLOAT_128 };
+const unsigned char operators_flags[] = { SUM, SUBTRACTION, MULTIPLICATION, DIVISION };
 
 void assert(bool condition, unsigned int line, char* file, char* err_msg) {
     if (condition) {
@@ -49,15 +55,15 @@ unsigned int calc_tensor_size(unsigned int* shape, unsigned int dim) {
     return size;
 }
 
-bool is_valid_data_type(DataType data_type) {
-    for (unsigned int i = 0; i < ARR_SIZE(data_types); ++i) {
-        if (data_type == data_types[i]) return TRUE;
+bool is_valid_enum(unsigned char enum_value, unsigned char* enum_values, unsigned int enum_values_count) {
+    for (unsigned int i = 0; i < enum_values_count; ++i) {
+        if (enum_value == enum_values[i]) return TRUE;
     }
     return FALSE;
 }
 
 Tensor create_tensor(unsigned int* shape, unsigned int dim, DataType data_type) {
-    ASSERT(!is_valid_data_type(data_type), "INVALID_DATA_TYPE");
+    ASSERT(!is_valid_enum(data_type, (unsigned char*) data_types, ARR_SIZE(data_types)), "INVALID_DATA_TYPE");
     ASSERT(!dim, "INVALID_DIM");
     Tensor tensor = { .shape = NULL, .dim = dim, .data_type = data_type, .data = NULL };
     tensor.shape = (unsigned int*) calloc(tensor.dim, sizeof(unsigned int));
@@ -146,7 +152,8 @@ void reshape_tensor(Tensor* dest, Tensor base) {
     return;
 }
 
-Tensor sum_tensor(Tensor* c, Tensor a, Tensor b, bool subtract_flag) {
+Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
+    ASSERT(!is_valid_enum(op_flag, (unsigned char*) operators_flags, ARR_SIZE(operators_flags)), "INVALID_OPERATOR");
     ASSERT(a.dim != b.dim, "DIM_MISMATCH");
     ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
     for (unsigned int i = 0; i < a.dim; ++i) {
@@ -156,11 +163,30 @@ Tensor sum_tensor(Tensor* c, Tensor a, Tensor b, bool subtract_flag) {
     reshape_tensor(c, a);
     
     unsigned int size = calc_tensor_size(a.shape, a.dim);
-    const char invert = subtract_flag ? -1 : 1;
-    for (unsigned int i = 0; i < size; ++i) {
-        if (a.data_type == FLOAT_32) CAST_PTR(c -> data, float)[i] = CAST_PTR(a.data, float)[i] + invert * CAST_PTR(b.data, float)[i];
-        if (a.data_type == FLOAT_64) CAST_PTR(c -> data, double)[i] = CAST_PTR(a.data, double)[i] + invert * CAST_PTR(b.data, double)[i];
-        if (a.data_type == FLOAT_128) CAST_PTR(c -> data, long double)[i] = CAST_PTR(a.data, long double)[i] + invert * CAST_PTR(b.data, long double)[i];
+    if (op_flag == SUM) {
+        for (unsigned int i = 0; i < size; ++i) {
+            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, c, i, float, +);
+            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, c, i, double, +);
+            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, c, i, long double, +);
+        }
+    } else if (op_flag == SUBTRACTION) {
+        for (unsigned int i = 0; i < size; ++i) {
+            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, c, i, float, -);
+            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, c, i, double, -);
+            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, c, i, long double, -);
+        }
+    } else if (op_flag == MULTIPLICATION) {
+        for (unsigned int i = 0; i < size; ++i) {
+            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, c, i, float, *);
+            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, c, i, double, *);
+            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, c, i, long double, *);
+        }
+    } else {
+        for (unsigned int i = 0; i < size; ++i) {
+            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, c, i, float, /);
+            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, c, i, double, /);
+            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, c, i, long double, /);
+        }
     }
 
     return *c;
