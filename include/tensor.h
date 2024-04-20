@@ -1,6 +1,9 @@
 #ifndef _TENSOR_H_
 #define _TENSOR_H_
 
+#include <assert.h>
+#include <time.h>
+
 #define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define CAST_PTR(ptr, type) ((type*) (ptr))
 #define NOT_USED(var) (void) var
@@ -65,6 +68,56 @@ void deallocate_tensor(Tensor tensor, bool delete_shape) {
     if (delete_shape) free(tensor.shape);
     free(tensor.data);
     return;
+}
+
+void init_seed() {
+    srand(time(NULL));
+    return;
+}
+
+void fill_tensor(void* val, Tensor tensor) {
+    unsigned int real_size = calc_real_tensor_size(tensor.shape, tensor.dim);
+    for (unsigned int i = 0; i < real_size; ++i) {
+        if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = *CAST_PTR(val, float);
+        if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = *CAST_PTR(val, double);
+        if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = *CAST_PTR(val, long double);
+    }
+    return;
+}
+
+void randomize_tensor(Tensor tensor) {
+    unsigned int real_size = calc_real_tensor_size(tensor.shape, tensor.dim);
+    for (unsigned int i = 0; i < real_size; ++i) {
+        long double value = (long double) rand() / RAND_MAX;
+        if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = (float) value;
+        if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = (double) value;
+        if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = value;
+    }
+    return;
+}
+
+void reshape_tensor(Tensor* dest, Tensor base) {
+    return;
+}
+
+Tensor sum_tensor(Tensor* c, Tensor a, Tensor b) {
+    assert(a.dim == b.dim);
+    assert(a.data_type == b.data_type);
+    for (unsigned int i = 0; i < a.dim; ++i) {
+        assert(a.shape[i] == b.shape[i]);
+    }
+    
+    reshape_tensor(c, a);
+    
+    unsigned int real_size = calc_real_tensor_size(a.shape, a.dim);
+    for (unsigned int i = 0; i < real_size; ++i) {
+        long double value = (long double) rand() / RAND_MAX;
+        if (a.data_type == FLOAT_32) CAST_PTR(a.data, float)[i] = (float) value;
+        if (a.data_type == FLOAT_64) CAST_PTR(a.data, double)[i] = (double) value;
+        if (a.data_type == FLOAT_128) CAST_PTR(a.data, long double)[i] = value;
+    }
+
+    return *c;
 }
 
 #endif //_TENSOR_H_
