@@ -4,12 +4,12 @@
 
 int main() {
     unsigned int shape[] = {2, 2, 2, 2};
-    char err_msg[MSG_MAX_LEN];
-    Tensor tensor = create_tensor(shape, ARR_SIZE(shape), FLOAT_32, err_msg);
-    if (tensor.data == NULL) {
-        printf("ERROR: failed to create the tensor: '%s'!\n", err_msg);
-        return -1;
-    }
-    print_tensor(tensor);
+    Tensor a = create_tensor(shape, ARR_SIZE(shape), FLOAT_32);
+    Tensor b = create_tensor(shape, ARR_SIZE(shape), FLOAT_32);
+    randomize_tensor(b);
+    Tensor c = create_tensor(shape, ARR_SIZE(shape), FLOAT_32);
+    sum_tensor(&c, a, b);
+    print_tensor(c);
+    DEALLOCATE_TENSORS(a, b, c);
     return 0;
 }

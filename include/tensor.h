@@ -1,16 +1,20 @@
 #ifndef _TENSOR_H_
 #define _TENSOR_H_
 
-#include <assert.h>
 #include <time.h>
+#include <stdarg.h>
 
 #define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define CAST_PTR(ptr, type) ((type*) (ptr))
+#define ASSERT(condition, err_msg) assert(condition, __LINE__, __FILE__, err_msg);
+#define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
 #define NOT_USED(var) (void) var
 #define MSG_MAX_LEN 512
+#define TRUE 1
+#define FALSE 0
 
 typedef unsigned char bool;
-typedef enum DataType { FLOAT_32, FLOAT_64, FLOAT_128 } DataType;
+typedef enum DataType { FLOAT_32 = sizeof(float), FLOAT_64 = sizeof(double), FLOAT_128 = sizeof(long double) } DataType;
 typedef struct Tensor {
     unsigned int* shape;
     unsigned int dim;
@@ -18,23 +22,46 @@ typedef struct Tensor {
     DataType data_type;
 } Tensor;
 
-unsigned int calc_real_tensor_size(unsigned int* shape, unsigned int dim) {
+const unsigned char data_types[] = { FLOAT_32, FLOAT_64, FLOAT_128 };
+
+void assert(bool condition, unsigned int line, char* file, char* err_msg) {
+    if (condition) {
+        printf("ERROR: Assert failed in file: %s:%u, with error: %s.\n", file, line, err_msg);
+        exit(-1);
+    }
+    return;
+}
+
+void mem_copy(void* dest, void* src, unsigned char size, unsigned int n) {
+    ASSERT(src == NULL, "NULL_POINTER");
+    for (unsigned int i = 0; i < size * n; ++i) {
+        CAST_PTR(dest, unsigned char)[i] = CAST_PTR(src, unsigned char)[i];
+    }
+    return;
+}
+
+unsigned int calc_tensor_size(unsigned int* shape, unsigned int dim) {
     unsigned int size = 1;
     for (unsigned int i = 0; i < dim; ++i) size *= shape[i];
     return size;
 }
 
-Tensor create_tensor(unsigned int* shape, unsigned int dim, DataType data_type, char* err_msg) {
-    Tensor tensor = { .shape = shape, .dim = dim, .data_type = data_type, .data = NULL };
-    unsigned int real_tensor_size = calc_real_tensor_size(shape, dim);
-    if (data_type == FLOAT_32) tensor.data = calloc(real_tensor_size, sizeof(float)); 
-    else if (data_type == FLOAT_64) tensor.data = calloc(real_tensor_size, sizeof(double));
-    else if (data_type == FLOAT_128) tensor.data = calloc(real_tensor_size, sizeof(long double));
-    else {
-        snprintf(err_msg, MSG_MAX_LEN, "INVALID_DATA_TYPE");
-        return tensor;
+bool is_valid_data_type(DataType data_type) {
+    for (unsigned int i = 0; i < ARR_SIZE(data_types); ++i) {
+        if (data_type == data_types[i]) return TRUE;
     }
-    if (tensor.data == NULL) snprintf(err_msg, MSG_MAX_LEN, "BAD_MEMORY");
+    return FALSE;
+}
+
+Tensor create_tensor(unsigned int* shape, unsigned int dim, DataType data_type) {
+    ASSERT(!is_valid_data_type(data_type), "INVALID_DATA_TYPE");
+    ASSERT(!dim, "INVALID_DIM");
+    Tensor tensor = { .shape = NULL, .dim = dim, .data_type = data_type, .data = NULL };
+    tensor.shape = (unsigned int*) calloc(tensor.dim, sizeof(unsigned int));
+    ASSERT(tensor.shape == NULL, "BAD_MEMORY");
+    mem_copy(tensor.shape, shape, sizeof(unsigned int), tensor.dim);
+    tensor.data = calloc(calc_tensor_size(shape, dim), tensor.data_type); 
+    ASSERT(tensor.data == NULL, "BAD_MEMORY");
     return tensor;
 }
 
@@ -49,13 +76,13 @@ void calc_space(unsigned int index, Tensor tensor) {
 }
 
 void print_tensor(Tensor tensor) {
-    const unsigned int real_size = calc_real_tensor_size(tensor.shape, tensor.dim);
+    const unsigned int size = calc_tensor_size(tensor.shape, tensor.dim);
     printf("DEBUG_INFO: Tensor with shape: [ ");
     for (unsigned int i = 0; i < tensor.dim; ++i) {
         printf("%u%c ", tensor.shape[i], i == (tensor.dim - 1) ? '\0' : ',');
     }
     printf("]\n\n");
-    for (unsigned int i = 0; i < real_size; ++i) {
+    for (unsigned int i = 0; i < size; ++i) {
         if (tensor.data_type == FLOAT_32) printf("%f", CAST_PTR(tensor.data, float)[i]);
         if (tensor.data_type == FLOAT_64) printf("%lf", CAST_PTR(tensor.data, double)[i]);
         if (tensor.data_type == FLOAT_128) printf("%Lf", CAST_PTR(tensor.data, long double)[i]);
@@ -64,9 +91,18 @@ void print_tensor(Tensor tensor) {
     return;
 }
 
-void deallocate_tensor(Tensor tensor, bool delete_shape) {
-    if (delete_shape) free(tensor.shape);
-    free(tensor.data);
+void deallocate_tensors(int len, ...) {
+    va_list args;
+    va_start(args, len);
+
+    for (int i = 0; i < len; ++i) {
+        Tensor tensor = va_arg(args, Tensor);
+        free(tensor.data);
+        free(tensor.shape);
+    }
+
+    va_end(args);
+
     return;
 }
 
@@ -76,8 +112,8 @@ void init_seed() {
 }
 
 void fill_tensor(void* val, Tensor tensor) {
-    unsigned int real_size = calc_real_tensor_size(tensor.shape, tensor.dim);
-    for (unsigned int i = 0; i < real_size; ++i) {
+    unsigned int size = calc_tensor_size(tensor.shape, tensor.dim);
+    for (unsigned int i = 0; i < size; ++i) {
         if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = *CAST_PTR(val, float);
         if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = *CAST_PTR(val, double);
         if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = *CAST_PTR(val, long double);
@@ -86,8 +122,8 @@ void fill_tensor(void* val, Tensor tensor) {
 }
 
 void randomize_tensor(Tensor tensor) {
-    unsigned int real_size = calc_real_tensor_size(tensor.shape, tensor.dim);
-    for (unsigned int i = 0; i < real_size; ++i) {
+    unsigned int size = calc_tensor_size(tensor.shape, tensor.dim);
+    for (unsigned int i = 0; i < size; ++i) {
         long double value = (long double) rand() / RAND_MAX;
         if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = (float) value;
         if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = (double) value;
@@ -97,24 +133,30 @@ void randomize_tensor(Tensor tensor) {
 }
 
 void reshape_tensor(Tensor* dest, Tensor base) {
+    dest -> shape = (unsigned int*) realloc(dest -> shape, sizeof(unsigned int) * base.dim);
+    mem_copy(dest -> shape, base.shape, sizeof(unsigned int), base.dim);
+    dest -> dim = base.dim;
+    dest -> data_type = base.data_type;
+    free(dest -> data);
+    dest -> data = calloc(calc_tensor_size(dest -> shape, dest -> dim), dest -> data_type);
+    ASSERT(dest -> data == NULL, "BAD_MEMORY");
     return;
 }
 
 Tensor sum_tensor(Tensor* c, Tensor a, Tensor b) {
-    assert(a.dim == b.dim);
-    assert(a.data_type == b.data_type);
+    ASSERT(a.dim != b.dim, "DIM_MISMATCH");
+    ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
     for (unsigned int i = 0; i < a.dim; ++i) {
-        assert(a.shape[i] == b.shape[i]);
+        ASSERT(a.shape[i] != b.shape[i], "SHAPE_MISMATCH");
     }
     
     reshape_tensor(c, a);
     
-    unsigned int real_size = calc_real_tensor_size(a.shape, a.dim);
-    for (unsigned int i = 0; i < real_size; ++i) {
-        long double value = (long double) rand() / RAND_MAX;
-        if (a.data_type == FLOAT_32) CAST_PTR(a.data, float)[i] = (float) value;
-        if (a.data_type == FLOAT_64) CAST_PTR(a.data, double)[i] = (double) value;
-        if (a.data_type == FLOAT_128) CAST_PTR(a.data, long double)[i] = value;
+    unsigned int size = calc_tensor_size(a.shape, a.dim);
+    for (unsigned int i = 0; i < size; ++i) {
+        if (a.data_type == FLOAT_32) CAST_PTR(c -> data, float)[i] = CAST_PTR(a.data, float)[i] + CAST_PTR(b.data, float)[i];
+        if (a.data_type == FLOAT_64) CAST_PTR(c -> data, double)[i] = CAST_PTR(a.data, double)[i] + CAST_PTR(b.data, double)[i];
+        if (a.data_type == FLOAT_128) CAST_PTR(c -> data, long double)[i] = CAST_PTR(a.data, long double)[i] + CAST_PTR(b.data, long double)[i];
     }
 
     return *c;
