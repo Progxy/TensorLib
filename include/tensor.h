@@ -5,6 +5,7 @@
 #include "./utils.h"
 
 #define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
+#define DEALLOCATE_TEMP_TENSORS() alloc_temp_tensor(NULL, 0, FLOAT_32, TRUE)
 #define PRINT_TENSOR(tensor) print_tensor(tensor, #tensor)
 #define SUBTRACT_TENSOR(c, a, b) op_tensor(c, a, b, SUBTRACTION)
 #define SUM_TENSOR(c, a, b) op_tensor(c, a, b, SUM)
@@ -34,7 +35,7 @@ static unsigned int calc_tensor_size(unsigned int* shape, unsigned int dim) {
     return size;
 }
 
-Tensor create_tensor(unsigned int* shape, unsigned int dim, DataType data_type) {
+Tensor alloc_tensor(unsigned int* shape, unsigned int dim, DataType data_type) {
     ASSERT(!is_valid_enum(data_type, (unsigned char*) data_types, ARR_SIZE(data_types)), "INVALID_DATA_TYPE");
     ASSERT(!dim, "INVALID_DIM");
     Tensor tensor = { .shape = NULL, .dim = dim, .data_type = data_type, .data = NULL };
@@ -44,6 +45,24 @@ Tensor create_tensor(unsigned int* shape, unsigned int dim, DataType data_type) 
     tensor.data = calloc(calc_tensor_size(shape, dim), tensor.data_type); 
     ASSERT(tensor.data == NULL, "BAD_MEMORY");
     return tensor;
+}
+
+Tensor alloc_temp_tensor(unsigned int* shape, unsigned int dim, DataType data_type, bool clean_cache_flag) {
+    static Tensor* cache_tensor = NULL;
+    static unsigned int cache_size = 0;
+
+    if (clean_cache_flag) {
+        for (unsigned int i = 0; i < cache_size; ++i) DEALLOCATE_TENSORS(cache_tensor[i]);
+        free(cache_tensor);
+        cache_tensor = NULL;
+        cache_size = 0;
+        return (Tensor) {};
+    } else if (cache_tensor == NULL) cache_tensor = (Tensor*) calloc(1, sizeof(Tensor));
+    else cache_tensor = (Tensor*) realloc(cache_tensor, sizeof(Tensor) * (cache_size + 1));
+
+    Tensor temp = alloc_tensor(shape, dim, data_type);
+    cache_tensor[cache_size++] = temp;
+    return temp;
 }
 
 void calc_space(unsigned int index, Tensor tensor) {
@@ -132,7 +151,7 @@ Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         ASSERT(a.shape[i] != b.shape[i], "SHAPE_MISMATCH");
     }
     
-    Tensor temp = create_tensor(a.shape, a.dim, a.data_type);
+    Tensor temp = alloc_tensor(a.shape, a.dim, a.data_type);
     
     unsigned int size = calc_tensor_size(a.shape, a.dim);
     if (op_flag == SUM) {
@@ -173,7 +192,7 @@ Tensor cross_product_tensor(Tensor* c, Tensor a, Tensor b) {
     unsigned int* new_shape = (unsigned int*) calloc(a.dim + b.dim, sizeof(unsigned int));
     mem_copy(new_shape, a.shape, a.dim, sizeof(unsigned int));
     mem_copy(new_shape + a.dim, b.shape, b.dim, sizeof(unsigned int));
-    Tensor temp = create_tensor(new_shape, a.dim + b.dim, a.data_type);
+    Tensor temp = alloc_tensor(new_shape, a.dim + b.dim, a.data_type);
     free(new_shape);
 
     unsigned int a_size = calc_tensor_size(a.shape, a.dim);
@@ -194,7 +213,7 @@ Tensor cross_product_tensor(Tensor* c, Tensor a, Tensor b) {
 
 Tensor scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag) {
     ASSERT(!is_valid_enum(op_flag, (unsigned char*) operators_flags, ARR_SIZE(operators_flags)), "INVALID_OPERATOR");
-    Tensor scalar_tensor = create_tensor(tensor -> shape, tensor -> dim, tensor -> data_type);
+    Tensor scalar_tensor = alloc_tensor(tensor -> shape, tensor -> dim, tensor -> data_type);
     fill_tensor(scalar, scalar_tensor);
     op_tensor(tensor, *tensor, scalar_tensor, op_flag);
     DEALLOCATE_TENSORS(scalar_tensor);

@@ -4,7 +4,7 @@
 
 int main() {
     unsigned int shape[] = {2, 2};
-    Tensor a = create_tensor(shape, ARR_SIZE(shape), FLOAT_32);
+    Tensor a = alloc_tensor(shape, ARR_SIZE(shape), FLOAT_32);
     float val = 1.0f;
     SCALAR_MUL_TENSOR(&a, &val);
     PRINT_TENSOR(a);
