@@ -152,7 +152,7 @@ Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
     return *c;
 }
 
-Tensor cross_product(Tensor* c, Tensor a, Tensor b) {
+Tensor cross_product_tensor(Tensor* c, Tensor a, Tensor b) {
     ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
 
     unsigned int* new_shape = (unsigned int*) calloc(a.dim + b.dim, sizeof(unsigned int));
