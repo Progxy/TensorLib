@@ -101,11 +101,11 @@ void randomize_tensor(Tensor tensor) {
     return;
 }
 
-void reshape_tensor(Tensor* dest, Tensor base) {
-    dest -> shape = (unsigned int*) realloc(dest -> shape, sizeof(unsigned int) * base.dim);
-    mem_copy(dest -> shape, base.shape, sizeof(unsigned int), base.dim);
-    dest -> dim = base.dim;
-    dest -> data_type = base.data_type;
+void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int dim, DataType data_type) {
+    dest -> shape = (unsigned int*) realloc(dest -> shape, sizeof(unsigned int) * dim);
+    mem_copy(dest -> shape, shape, sizeof(unsigned int), dim);
+    dest -> dim = dim;
+    dest -> data_type = data_type;
     free(dest -> data);
     dest -> data = calloc(calc_tensor_size(dest -> shape, dest -> dim), dest -> data_type);
     ASSERT(dest -> data == NULL, "BAD_MEMORY");
@@ -120,7 +120,7 @@ Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         ASSERT(a.shape[i] != b.shape[i], "SHAPE_MISMATCH");
     }
     
-    reshape_tensor(c, a);
+    reshape_tensor(c, a.shape, a.dim, a.data_type);
     
     unsigned int size = calc_tensor_size(a.shape, a.dim);
     if (op_flag == SUM) {
@@ -146,6 +146,26 @@ Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
             if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, c, i, float, /);
             if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, c, i, double, /);
             if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, c, i, long double, /);
+        }
+    }
+
+    return *c;
+}
+
+Tensor cross_product(Tensor* c, Tensor a, Tensor b) {
+    ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
+
+    unsigned int* new_shape = (unsigned int*) calloc(a.dim + b.dim, sizeof(unsigned int));
+    mem_copy(new_shape, a.shape, a.dim, sizeof(unsigned int));
+    mem_copy(new_shape + a.dim, b.shape, b.dim, sizeof(unsigned int));
+    reshape_tensor(c, new_shape, a.dim + b.dim, a.data_type);
+    free(new_shape);
+
+    unsigned int a_size = calc_tensor_size(a.shape, a.dim);
+    unsigned int b_size = calc_tensor_size(b.shape, b.dim);
+    for (unsigned int i = 0; i < a_size; ++i) {
+        for (unsigned int j = 0; j < b_size; ++j) {
+            CAST_PTR(c -> data, float)[i * b_size + j] = CAST_PTR(a.data, float)[i] * CAST_PTR(b.data, float)[j];
         }
     }
 
