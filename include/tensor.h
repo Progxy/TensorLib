@@ -8,8 +8,12 @@
 #define PRINT_TENSOR(tensor) print_tensor(tensor, #tensor)
 #define SUBTRACT_TENSOR(c, a, b) op_tensor(c, a, b, SUBTRACTION)
 #define SUM_TENSOR(c, a, b) op_tensor(c, a, b, SUM)
-#define HADAMARD_PRODUCT(c, a, b) op_tensor(c, a, b, MULTIPLICATION)
+#define MULTIPLY_TENSOR(c, a, b) op_tensor(c, a, b, MULTIPLICATION)
 #define DIVIDE_TENSOR(c, a, b) op_tensor(c, a, b, DIVISION)
+#define SCALAR_SUB_TENSOR(c, a, val) scalar_op_tensor(c, a, val, SUBTRACTION)
+#define SCALAR_SUM_TENSOR(a, val) scalar_op_tensor(a, val, SUM)
+#define SCALAR_MUL_TENSOR(a, val) scalar_op_tensor(a, val, MULTIPLICATION)
+#define SCALAR_DIV_TENSOR(a, val) scalar_op_tensor(a, val, DIVISION)
 
 typedef enum DataType { FLOAT_32 = sizeof(float), FLOAT_64 = sizeof(double), FLOAT_128 = sizeof(long double) } DataType;
 typedef enum OperatorFlag { SUM, SUBTRACTION, MULTIPLICATION, DIVISION } OperatorFlag;
@@ -103,12 +107,20 @@ void randomize_tensor(Tensor tensor) {
 
 void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int dim, DataType data_type) {
     dest -> shape = (unsigned int*) realloc(dest -> shape, sizeof(unsigned int) * dim);
+    ASSERT(dest -> shape == NULL, "BAD_MEMORY");
     mem_copy(dest -> shape, shape, sizeof(unsigned int), dim);
     dest -> dim = dim;
     dest -> data_type = data_type;
     free(dest -> data);
     dest -> data = calloc(calc_tensor_size(dest -> shape, dest -> dim), dest -> data_type);
     ASSERT(dest -> data == NULL, "BAD_MEMORY");
+    return;
+}
+
+void copy_tensor(Tensor* dest, Tensor src) {
+    reshape_tensor(dest, src.shape, src.dim, src.data_type);
+    unsigned int size = calc_tensor_size(src.shape, src.dim);
+    mem_copy(dest -> data, src.data, size, src.data_type);
     return;
 }
 
@@ -120,34 +132,37 @@ Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         ASSERT(a.shape[i] != b.shape[i], "SHAPE_MISMATCH");
     }
     
-    reshape_tensor(c, a.shape, a.dim, a.data_type);
+    Tensor temp = create_tensor(a.shape, a.dim, a.data_type);
     
     unsigned int size = calc_tensor_size(a.shape, a.dim);
     if (op_flag == SUM) {
         for (unsigned int i = 0; i < size; ++i) {
-            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, c, i, float, +);
-            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, c, i, double, +);
-            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, c, i, long double, +);
+            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, temp, i, float, +);
+            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, temp, i, double, +);
+            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, temp, i, long double, +);
         }
     } else if (op_flag == SUBTRACTION) {
         for (unsigned int i = 0; i < size; ++i) {
-            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, c, i, float, -);
-            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, c, i, double, -);
-            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, c, i, long double, -);
+            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, temp, i, float, -);
+            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, temp, i, double, -);
+            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, temp, i, long double, -);
         }
     } else if (op_flag == MULTIPLICATION) {
         for (unsigned int i = 0; i < size; ++i) {
-            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, c, i, float, *);
-            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, c, i, double, *);
-            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, c, i, long double, *);
+            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, temp, i, float, *);
+            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, temp, i, double, *);
+            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, temp, i, long double, *);
         }
     } else {
         for (unsigned int i = 0; i < size; ++i) {
-            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, c, i, float, /);
-            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, c, i, double, /);
-            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, c, i, long double, /);
+            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, temp, i, float, /);
+            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, temp, i, double, /);
+            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, temp, i, long double, /);
         }
     }
+
+    copy_tensor(c, temp);
+    DEALLOCATE_TENSORS(temp);
 
     return *c;
 }
@@ -158,18 +173,32 @@ Tensor cross_product_tensor(Tensor* c, Tensor a, Tensor b) {
     unsigned int* new_shape = (unsigned int*) calloc(a.dim + b.dim, sizeof(unsigned int));
     mem_copy(new_shape, a.shape, a.dim, sizeof(unsigned int));
     mem_copy(new_shape + a.dim, b.shape, b.dim, sizeof(unsigned int));
-    reshape_tensor(c, new_shape, a.dim + b.dim, a.data_type);
+    Tensor temp = create_tensor(new_shape, a.dim + b.dim, a.data_type);
     free(new_shape);
 
     unsigned int a_size = calc_tensor_size(a.shape, a.dim);
     unsigned int b_size = calc_tensor_size(b.shape, b.dim);
     for (unsigned int i = 0; i < a_size; ++i) {
         for (unsigned int j = 0; j < b_size; ++j) {
-            CAST_PTR(c -> data, float)[i * b_size + j] = CAST_PTR(a.data, float)[i] * CAST_PTR(b.data, float)[j];
+            if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i * b_size + j] = CAST_PTR(a.data, float)[i] * CAST_PTR(b.data, float)[j];
+            else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * b_size + j] = CAST_PTR(a.data, double)[i] * CAST_PTR(b.data, double)[j];
+            else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * b_size + j] = CAST_PTR(a.data, long double)[i] * CAST_PTR(b.data, long double)[j];
         }
     }
 
+    copy_tensor(c, temp);
+    DEALLOCATE_TENSORS(temp);
+
     return *c;
+}
+
+Tensor scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag) {
+    ASSERT(!is_valid_enum(op_flag, (unsigned char*) operators_flags, ARR_SIZE(operators_flags)), "INVALID_OPERATOR");
+    Tensor scalar_tensor = create_tensor(tensor -> shape, tensor -> dim, tensor -> data_type);
+    fill_tensor(scalar, scalar_tensor);
+    op_tensor(tensor, *tensor, scalar_tensor, op_flag);
+    DEALLOCATE_TENSORS(scalar_tensor);
+    return *tensor;
 }
 
 #endif //_TENSOR_H_
