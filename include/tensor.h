@@ -29,6 +29,20 @@ typedef struct Tensor {
 const unsigned char data_types[] = { FLOAT_32, FLOAT_64, FLOAT_128 };
 const unsigned char operators_flags[] = { SUM, SUBTRACTION, MULTIPLICATION, DIVISION };
 
+void deallocate_tensors(int len, ...);
+Tensor alloc_tensor(unsigned int* shape, unsigned int dim, DataType data_type);
+Tensor alloc_temp_tensor(unsigned int* shape, unsigned int dim, DataType data_type, bool clean_cache_flag);
+void print_tensor(Tensor tensor, char* tensor_name);
+void fill_tensor(void* val, Tensor tensor);
+void randomize_tensor(Tensor tensor);
+void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int dim, DataType data_type);
+void copy_tensor(Tensor* dest, Tensor src);
+Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag);
+Tensor cross_product_tensor(Tensor* c, Tensor a, Tensor b);
+Tensor scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
+
+/* ------------------------------------------------------------------------------------------------------------------------- */
+
 static unsigned int tensor_size(unsigned int* shape, unsigned int dim) {
     unsigned int size = 1;
     for (unsigned int i = 0; i < dim; ++i) size *= shape[i];
