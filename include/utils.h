@@ -8,6 +8,8 @@
 #define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define CAST_PTR(ptr, type) ((type*) (ptr))
 #define NOT_USED(var) (void) var
+#define MAX(a, b) (a >= b ? a : b)
+#define MIN(a, b) (a <= b ? a : b)
 #define FALSE 0
 #define TRUE 1
 
