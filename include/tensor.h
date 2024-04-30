@@ -38,7 +38,7 @@ void randomize_tensor(Tensor tensor);
 void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int rank, DataType data_type);
 void copy_tensor(Tensor* dest, Tensor src);
 Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag);
-Tensor cross_product_tensor(Tensor* c, Tensor a, Tensor b);
+Tensor* cross_product_tensor(Tensor* c, Tensor a, Tensor b);
 Tensor scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b);
 
@@ -217,7 +217,7 @@ Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
     return *c;
 }
 
-Tensor cross_product_tensor(Tensor* c, Tensor a, Tensor b) {
+Tensor* cross_product_tensor(Tensor* c, Tensor a, Tensor b) {
     ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
 
     unsigned int* new_shape = (unsigned int*) calloc(a.rank + b.rank, sizeof(unsigned int));
@@ -239,7 +239,7 @@ Tensor cross_product_tensor(Tensor* c, Tensor a, Tensor b) {
     copy_tensor(c, temp);
     DEALLOCATE_TENSORS(temp);
 
-    return *c;
+    return c;
 }
 
 Tensor scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag) {
