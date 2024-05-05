@@ -1,7 +1,7 @@
 #ifndef _AUTOGRAD_H_
 #define _AUTOGRAD_H_
 
-typedef enum OperatorFlag { SUMMATION, SUBTRACTION, MULTIPLICATION, DIVISION };
+typedef enum OperatorFlag { SUMMATION, SUBTRACTION, MULTIPLICATION, DIVISION } OperatorFlag;
 typedef struct GradNode {
     float value;
     float derived_value;
@@ -114,6 +114,16 @@ void forward_graph(GradNode* head) {
         forward_graph(head -> children[i]);
     }
     return;
+}
+
+float operation(float a, float b, OperatorFlag operator) {
+    float c = 0.0f;
+    switch (operator) {
+        case SUMMATION: 
+            c = a + b;
+            break;
+    }
+    return c;
 }
 
 // NOTE: you can use the toposort to linearize the graph and run smoothly the forward and backward pass
