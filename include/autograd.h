@@ -1,21 +1,24 @@
 #ifndef _AUTOGRAD_H_
 #define _AUTOGRAD_H_
 
-#include "./tensor.h"
-
+typedef enum OperatorFlag { SUMMATION, SUBTRACTION, MULTIPLICATION, DIVISION };
 typedef struct GradNode {
-    void* value;
-    void* derived_value;
-    DataType data_type;
+    float value;
+    float derived_value;
     OperatorFlag operation;
     struct GradNode** children;
     struct GradNode* parents[2];
     unsigned int children_count;
 } GradNode;
 
-GradNode* alloc_grad_graph_node(DataType data_type) {
+static inline float powf(float base, float exp) {
+    float val = base;
+    for (float i = 1.0f; i < exp; ++i) val *= base;
+    return val;
+}
+
+GradNode* alloc_grad_graph_node() {
     GradNode* node = (GradNode*) calloc(1, sizeof(GradNode));
-    node -> data_type = data_type;
     node -> children = NULL;
     node -> children_count = 0;
     return node;  
@@ -36,22 +39,22 @@ void add_child(GradNode* child, GradNode* parent) {
     return;
 }
 
-void exec_operation(GradNode* node, void* value_a, void* value_b) {
+void exec_operation(GradNode* node, float value_a, float value_b) {
     switch (node -> operation) {
         case SUMMATION:
-            SUM(node -> value, value_a, value_b, node -> data_type);
+            node -> value = value_a + value_b;
             break;
 
         case SUBTRACTION: 
-            SUBTRACT(node -> value, value_a, value_b, node -> data_type);
+            node -> value = value_a - value_b;
             break;        
         
         case MULTIPLICATION: 
-            MULTIPLY(node -> value, value_a, value_b, node -> data_type);
-            break;        
+            node -> value = value_a * value_b;
+            break;      
         
         case DIVISION: 
-            DIVIDE(node -> value, value_a, value_b, node -> data_type);
+            node -> value = value_a / value_b;
             break;
         
     }
@@ -59,8 +62,7 @@ void exec_operation(GradNode* node, void* value_a, void* value_b) {
 }
 
 GradNode* compute_graph(GradNode* node_a, GradNode* node_b, OperatorFlag operation) {
-    ASSERT(node_a -> data_type != node_b -> data_type, "DATA_TYPE_MISMATCH");
-    GradNode* new_node = alloc_grad_graph_node(node_a -> data_type);
+    GradNode* new_node = alloc_grad_graph_node();
     new_node -> operation = operation;
     add_child(new_node, node_a);
     add_child(new_node, node_b);
@@ -73,47 +75,35 @@ GradNode* get_other_parent(GradNode* parents[2], GradNode* parent) {
     return NULL;
 }
 
-void* derive_op(GradNode* node, GradNode* child) {
+float derive_op(GradNode* node, GradNode* child) {
     switch (child -> operation) {
         case SUMMATION:
-            ASSIGN(node -> derived_value, 1.0L, node -> data_type);
+            node -> derived_value = 1.0f;
             break;       
             
         case SUBTRACTION:
-            ASSIGN(node -> derived_value, -1.0L, node -> data_type);
+            node -> derived_value = -1.0f;
             break;        
         
         case MULTIPLICATION:
-            if (node -> data_type == FLOAT_32) ASSIGN(node -> derived_value, *CAST_PTR(get_other_parent(child -> parents, node) -> value, float), node -> data_type);
-            else if (node -> data_type == FLOAT_64) ASSIGN(node -> derived_value, *CAST_PTR(get_other_parent(child -> parents, node) -> value, double), node -> data_type);
-            else if (node -> data_type == FLOAT_128) ASSIGN(node -> derived_value, *CAST_PTR(get_other_parent(child -> parents, node) -> value, long double), node -> data_type);
-            break;        
+            node -> derived_value = get_other_parent(child -> parents, node) -> value;
+            break;       
         
         case DIVISION:
-            void* temp = calloc(1, node -> data_type);
-            void* exp = calloc(1, node -> data_type);
-            ASSIGN(temp, 1.0L, node -> data_type);
-            ASSIGN(exp, 2.0L , node -> data_type);
-            DIVIDE(node -> derived_value, temp, POW(node -> derived_value, node -> value, exp, node -> data_type), node -> data_type);
-            MULTIPLY(node -> derived_value, node -> derived_value, get_other_parent(child -> parents, node) -> value, node -> data_type);
-            DEALLOCATE_PTRS(temp, exp);
+            node -> derived_value = get_other_parent(child -> parents, node) -> value * (1.0f / powf(node -> value, 2.0f));
             break;
     }
 
     return node -> derived_value;
 }
 
-void* derive_node(GradNode* node) {
-    void* temp = calloc(1, node -> data_type);
-    ASSIGN(temp, 0.0L, node -> data_type);
+float derive_node(GradNode* node) {
+    float temp = 0.0f;
     for (unsigned int i = 0; i < node -> children_count; ++i) {
-        MULTIPLY(node -> derived_value, derive_node(node -> children + i), derive_op(node, node -> children[i]), node -> data_type);
-        SUM(temp, temp, node -> derived_value, node -> data_type);
+        node -> derived_value = derive_node(node -> children + i) * derive_op(node, node -> children[i]);
+        temp += node -> derived_value;
     }
-    if (node -> data_type == FLOAT_32) ASSIGN(node -> derived_value, *CAST_PTR(temp, float), node -> data_type);
-    else if (node -> data_type == FLOAT_64) ASSIGN(node -> derived_value, *CAST_PTR(temp, double), node -> data_type);
-    else if (node -> data_type == FLOAT_128) ASSIGN(node -> derived_value, *CAST_PTR(temp, long double), node -> data_type);
-    DEALLOCATE_PTRS(temp);
+    node -> derived_value = temp;
     return node -> derived_value;
 }
 
