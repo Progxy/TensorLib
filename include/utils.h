@@ -2,6 +2,7 @@
 #define _UTILS_H_
 
 #include <time.h>
+#include "./types.h"
 
 #define CAST_AND_OP(a, b, c, index, type, op) CAST_PTR(c.data, type)[index] = CAST_PTR(a.data, type)[index] op CAST_PTR(b.data, type)[index]; 
 #define ASSERT(condition, err_msg) assert(condition, __LINE__, __FILE__, err_msg);
@@ -12,8 +13,6 @@
 #define MIN(a, b) (a <= b ? a : b)
 #define FALSE 0
 #define TRUE 1
-
-typedef unsigned char bool;
 
 void assert(bool condition, unsigned int line, char* file, char* err_msg) {
     if (condition) {

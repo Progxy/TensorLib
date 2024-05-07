@@ -1,15 +1,7 @@
 #ifndef _AUTOGRAD_H_
 #define _AUTOGRAD_H_
 
-typedef enum OperatorFlag { SUMMATION, SUBTRACTION, MULTIPLICATION, DIVISION } OperatorFlag;
-typedef struct GradNode {
-    float value;
-    float derived_value;
-    OperatorFlag operation;
-    struct GradNode** children;
-    struct GradNode* parents[2];
-    unsigned int children_count;
-} GradNode;
+#include "./tensor.h"
 
 static inline float powf(float base, float exp) {
     float val = base;
@@ -17,10 +9,11 @@ static inline float powf(float base, float exp) {
     return val;
 }
 
-GradNode* alloc_grad_graph_node() {
+GradNode* alloc_grad_graph_node(DataType data_type) {
     GradNode* node = (GradNode*) calloc(1, sizeof(GradNode));
     node -> children = NULL;
     node -> children_count = 0;
+    node -> derived_value = empty_tensor(data_type);
     return node;  
 }
 
@@ -28,6 +21,9 @@ void deallocate_grad_graph(GradNode* node) {
     for (unsigned int i = 0; i < node -> children_count; ++i) {
         deallocate_grad_graph(node -> children + i);
     }
+    DEALLOCATE_TENSORS(node -> derived_value);
+    free(node -> children);
+    free(node -> parents);
     free(node);
     node = NULL;
     return;
@@ -35,62 +31,49 @@ void deallocate_grad_graph(GradNode* node) {
 
 void add_child(GradNode* child, GradNode* parent) {
     parent -> children = (GradNode**) realloc(parent -> children, sizeof(GradNode*) * (parent -> children_count + 1));
-    parent -> children[(parent -> children_count)++] = child; 
+    parent -> children[(parent -> children_count)++] = child;     
+    child -> parents = (GradNode**) realloc(child -> parents, sizeof(GradNode*) * (child -> parents_count + 1));
+    child -> parents[(child -> parents_count)++] = parent; 
     return;
 }
 
-void exec_operation(GradNode* node, float value_a, float value_b) {
-    switch (node -> operation) {
-        case SUMMATION:
-            node -> value = value_a + value_b;
-            break;
-
-        case SUBTRACTION: 
-            node -> value = value_a - value_b;
-            break;        
-        
-        case MULTIPLICATION: 
-            node -> value = value_a * value_b;
-            break;      
-        
-        case DIVISION: 
-            node -> value = value_a / value_b;
-            break;
-        
-    }
-    return;
-}
-
-GradNode* compute_graph(GradNode* node_a, GradNode* node_b, OperatorFlag operation) {
-    GradNode* new_node = alloc_grad_graph_node();
+Tensor compute_graph(Tensor a, Tensor b, OperatorFlag operation) {
+    Tensor c = empty_tensor(a.data_type);
+    op_tensor(&c, a, b, operation);
+    GradNode* new_node = alloc_grad_graph_node(a.data_type);
     new_node -> operation = operation;
-    add_child(new_node, node_a);
-    add_child(new_node, node_b);
-    exec_operation(new_node, node_a -> value, node_b -> value);
-    return new_node;
+    add_child(new_node, a.grad_node);
+    add_child(new_node, b.grad_node);
+    return c;
 }
 
-GradNode* get_other_parent(GradNode* parents[2], GradNode* parent) {
-    for (unsigned int i = 0; i < 2; ++i) if (parents[i] != parent) return parents[i];
+GradNode* get_other_parent(GradNode* child, GradNode* parent) {
+    for (unsigned int i = 0; i < child -> parents_count; ++i) if (child -> parents[i] != parent) return child -> parents[i];
     return NULL;
 }
 
 float derive_op(GradNode* node, GradNode* child) {
     switch (child -> operation) {
-        case SUMMATION:
-            node -> derived_value = 1.0f;
+        case SUM:
+            void* temp = calloc(1, node -> derived_value.data_type);
+            ASSIGN(temp, 1.0L, node -> derived_value.data_type);
+            set_tensor(temp, node -> derived_value);
+            free(temp);
             break;       
             
         case SUBTRACTION:
-            node -> derived_value = -1.0f;
+            void* temp = calloc(1, node -> derived_value.data_type);
+            ASSIGN(temp, -1.0L, node -> derived_value.data_type);
+            set_tensor(temp, node -> derived_value);
+            free(temp);
             break;        
         
         case MULTIPLICATION:
-            node -> derived_value = get_other_parent(child -> parents, node) -> value;
+            node -> derived_value = get_other_parent(child, node) -> value;
             break;       
         
         case DIVISION:
-            node -> derived_value = get_other_parent(child -> parents, node) -> value * (1.0f / powf(node -> value, 2.0f));
+            node -> derived_value = get_other_parent(child, node) -> value * (1.0f / powf(node -> value, 2.0f));
             break;
     }
 
@@ -105,25 +88,6 @@ float derive_node(GradNode* node) {
     }
     node -> derived_value = temp;
     return node -> derived_value;
-}
-
-void forward_graph(GradNode* head) {
-    if (head == NULL) return; 
-    for (unsigned int i = 0; i < head -> children_count; ++i) {
-        exec_operation(head -> children[i], head -> value, get_other_parent(head -> children[i] -> parents, head) -> value);
-        forward_graph(head -> children[i]);
-    }
-    return;
-}
-
-float operation(float a, float b, OperatorFlag operator) {
-    float c = 0.0f;
-    switch (operator) {
-        case SUMMATION: 
-            c = a + b;
-            break;
-    }
-    return c;
 }
 
 // NOTE: you can use the toposort to linearize the graph and run smoothly the forward and backward pass
