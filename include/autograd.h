@@ -9,13 +9,14 @@
 #define TENSOR_GRAPH_SUBTRACT(c, a, b) graph_op(c, a, b, SUBTRACTION)
 #define TENSOR_GRAPH_SUM(c, a, b) graph_op(c, a, b, SUM)
 
-GradNode* alloc_grad_graph_node(DataType data_type, Tensor* value) {
+void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     GradNode* node = (GradNode*) calloc(1, sizeof(GradNode));
     node -> children = NULL;
     node -> value = value;
     node -> children_count = 0;
     node -> derived_value = empty_tensor(data_type);
-    return node;  
+    value -> grad_node = node;
+    return;  
 }
 
 void deallocate_grad_graph(GradNode* node) {
@@ -38,12 +39,18 @@ void add_child(GradNode* child, GradNode* parent) {
     return;
 }
 
+Tensor alloc_graph_tensor(unsigned int* shape, unsigned int rank, DataType data_type) {
+    Tensor tensor = alloc_tensor(shape, rank, data_type);
+    alloc_grad_graph_node(data_type, &tensor); 
+    return tensor;
+}
+
 Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
     op_tensor(c, a, b, operation);
-    GradNode* new_node = alloc_grad_graph_node(a.data_type, c);
-    new_node -> operation = operation;
-    add_child(new_node, a.grad_node);
-    add_child(new_node, b.grad_node);
+    alloc_grad_graph_node(a.data_type, c);
+    CAST_PTR(c -> grad_node, GradNode) -> operation = operation; 
+    add_child(c -> grad_node, a.grad_node);
+    add_child(c -> grad_node, b.grad_node);
     return c;
 }
 
