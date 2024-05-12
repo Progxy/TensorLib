@@ -14,11 +14,12 @@ typedef struct Tensor {
     unsigned int rank;
     void* data;
     DataType data_type;
-    GradNode* grad_node;
+    void* grad_node;
 } Tensor;
 
 typedef struct GradNode {
     Tensor derived_value;
+    Tensor* value;
     OperatorFlag operation;
     struct GradNode** children;
     unsigned int children_count;

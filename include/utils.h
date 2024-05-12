@@ -5,6 +5,7 @@
 #include "./types.h"
 
 #define CAST_AND_OP(a, b, c, index, type, op) CAST_PTR(c.data, type)[index] = CAST_PTR(a.data, type)[index] op CAST_PTR(b.data, type)[index]; 
+#define ASSIGN(val, new_val, data_type) assign_data_type(val, (long double) new_val, data_type)
 #define ASSERT(condition, err_msg) assert(condition, __LINE__, __FILE__, err_msg);
 #define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define CAST_PTR(ptr, type) ((type*) (ptr))
@@ -40,6 +41,13 @@ bool is_valid_enum(unsigned char enum_value, unsigned char* enum_values, unsigne
 void init_seed() {
     srand(time(NULL));
     return;
+}
+
+void* assign_data_type(void* val, long double new_val, DataType data_type) {
+    if (data_type == FLOAT_32) *CAST_PTR(val, float) = (float) new_val;
+    else if (data_type == FLOAT_64) *CAST_PTR(val, double) = (double) new_val;
+    else if (data_type == FLOAT_128) *CAST_PTR(val, long double) = new_val;
+    return val;
 }
 
 #endif //_UTILS_H_

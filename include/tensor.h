@@ -2,6 +2,7 @@
 #define _TENSOR_H_
 
 #include <stdarg.h>
+#include <math.h>
 #include "./utils.h"
 
 #define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
@@ -23,11 +24,12 @@ void print_tensor(Tensor tensor, char* prefix_str, char* tensor_name);
 void fill_tensor(void* val, Tensor tensor);
 void randomize_tensor(Tensor tensor);
 void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int rank, DataType data_type);
-void copy_tensor(Tensor* dest, Tensor src);
+Tensor* copy_tensor(Tensor* dest, Tensor src);
 Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag);
 Tensor* cross_product_tensor(Tensor* c, Tensor a, Tensor b);
 Tensor scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b);
+Tensor* pow_tensor(Tensor* temp, Tensor tensor, void* exp);
 
 /* ------------------------------------------------------------------------------------------------------------------------- */
 
@@ -64,6 +66,14 @@ static void print_shape(unsigned int* shape, unsigned int rank) {
     for (unsigned int i = 0; i < rank; ++i) printf("%u%s", shape[i], i == rank - 1 ? " " : ", ");
     printf("]\n");
     return;
+}
+
+static bool is_valid_shape(unsigned int* shape, unsigned int rank) {
+    if (shape == NULL) return FALSE;
+    for (unsigned int i = 0; i < rank; ++i) {
+        if (!shape[i]) return FALSE;
+    }
+    return TRUE;
 }
 
 unsigned int tensor_size(unsigned int* shape, unsigned int rank) {
@@ -168,11 +178,11 @@ void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int rank, DataTy
     return;
 }
 
-void copy_tensor(Tensor* dest, Tensor src) {
+Tensor* copy_tensor(Tensor* dest, Tensor src) {
     reshape_tensor(dest, src.shape, src.rank, src.data_type);
     unsigned int size = tensor_size(src.shape, src.rank);
     mem_copy(dest -> data, src.data, size, src.data_type);
-    return;
+    return dest;
 }
 
 Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
@@ -293,6 +303,17 @@ Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsign
     free(counter);
 
     return tensor;
+}
+
+Tensor* pow_tensor(Tensor* temp, Tensor tensor, void* exp) {
+    unsigned int size = tensor_size(tensor.shape, tensor.rank);
+    reshape_tensor(temp, tensor.shape, tensor.rank, tensor.data_type);
+    for (unsigned int i = 0; i < size; ++i) {
+        if (tensor.data_type == FLOAT_32) *CAST_PTR(temp -> data, float) = powf(*CAST_PTR(tensor.data, float), *CAST_PTR(exp, float));
+        else if (tensor.data_type == FLOAT_64) *CAST_PTR(temp -> data, double) = pow(*CAST_PTR(tensor.data, double), *CAST_PTR(exp, double));
+        else if (tensor.data_type == FLOAT_128) *CAST_PTR(temp -> data, long double) = powl(*CAST_PTR(tensor.data, long double), *CAST_PTR(exp, long double));
+    }
+    return temp;
 }
 
 #endif //_TENSOR_H_

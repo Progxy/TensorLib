@@ -1,4 +1,4 @@
-FLAGS = -std=c11 -Wall -Wextra -pedantic
+FLAGS = -std=c11 -Wall -Wextra -pedantic -lm
 
 build: main.c
 	gcc $(FLAGS) main.c -o out/demo
