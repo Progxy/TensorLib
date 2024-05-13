@@ -146,6 +146,13 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = exp(*CAST_PTR(a, double));
             else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = expl(*CAST_PTR(a, long double));
             break;
+        }        
+        
+        case TANH: {
+            if (data_type == FLOAT_32) *CAST_PTR(res, float) = tanhf(*CAST_PTR(a, float));
+            else if (data_type == FLOAT_64) *CAST_PTR(res, double) = tanh(*CAST_PTR(a, double));
+            else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = tanhl(*CAST_PTR(a, long double));
+            break;
         }
     }
 
