@@ -92,14 +92,14 @@ void derive_op(GradNode* node, GradNode* child) {
             if (IS_DENOMINATOR(node, child)) {
                 Tensor temp = empty_tensor(node -> derived_value.data_type);
                 void* exp = calloc(1, temp.data_type);
-                POW_TENSOR(&temp, *(node -> value), ASSIGN(exp, -2.0L, temp.data_type));
+                POW_TENSOR(&temp, *(node -> value), ASSIGN(exp, -2.0L, temp.data_type), temp.data_type);
                 free(exp);
                 copy_tensor(&(node -> derived_value), *(get_other_parent(child, node) -> value));
                 MULTIPLY_TENSOR(&(node -> derived_value), node -> derived_value, temp);
                 DEALLOCATE_TENSORS(temp);
             } else {
                 void* exp = calloc(1, node -> derived_value.data_type);
-                POW_TENSOR(&(node -> derived_value), *(get_other_parent(child, node) -> value), ASSIGN(exp, -1.0L, node -> derived_value.data_type));
+                POW_TENSOR(&(node -> derived_value), *(get_other_parent(child, node) -> value), ASSIGN(exp, -1.0L, node -> derived_value.data_type), node -> derived_value.data_type);
                 free(exp);
             }
             break;
@@ -109,7 +109,7 @@ void derive_op(GradNode* node, GradNode* child) {
             void* temp = calloc(1, node -> derived_value.data_type);
             void* tmp = calloc(1, node -> derived_value.data_type);
             copy_tensor(&(node -> derived_value), *(node -> value));
-            POW_TENSOR(&(node -> derived_value), node -> derived_value, SCALAR_SUB(temp, child -> exp, ASSIGN(tmp, 1.0L, node -> derived_value.data_type), node -> derived_value.data_type));
+            POW_TENSOR(&(node -> derived_value), node -> derived_value, SCALAR_SUB(temp, child -> exp, ASSIGN(tmp, 1.0L, node -> derived_value.data_type), node -> derived_value.data_type), node -> derived_value.data_type);
             SCALAR_MUL_TENSOR(&(node -> derived_value), child -> exp);
             free(tmp);
             free(temp);
@@ -125,8 +125,8 @@ void derive_op(GradNode* node, GradNode* child) {
             Tensor temp = alloc_tensor(node -> value -> shape, node -> value -> rank, node -> value -> data_type);
             void* val = calloc(1, node -> derived_value.data_type);
             ASSIGN(val, 2.0L, node -> derived_value.data_type);
-            TANH_TENSOR(&(node -> derived_value), *(node -> value));
-            POW_TENSOR(&(node -> derived_value), node -> derived_value, val);
+            TANH_TENSOR(&(node -> derived_value), *(node -> value), node -> derived_value.data_type);
+            POW_TENSOR(&(node -> derived_value), node -> derived_value, val, node -> derived_value.data_type);
             ASSIGN(val, 1.0L, node -> derived_value.data_type);
             fill_tensor(val, temp);
             SUBTRACT_TENSOR(&(node -> derived_value), temp, node -> derived_value);
