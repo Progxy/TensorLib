@@ -29,7 +29,7 @@ Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag);
 Tensor* cross_product_tensor(Tensor* c, Tensor a, Tensor b);
 Tensor scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b);
-Tensor* pow_tensor(Tensor* temp, Tensor tensor, void* exp);
+Tensor* pow_tensor(Tensor* dest, Tensor tensor, void* exp);
 
 /* ------------------------------------------------------------------------------------------------------------------------- */
 
@@ -196,29 +196,46 @@ Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
     Tensor temp = alloc_tensor(a.shape, a.rank, a.data_type);
     
     unsigned int size = tensor_size(a.shape, a.rank);
-    if (op_flag == SUM) {
-        for (unsigned int i = 0; i < size; ++i) {
-            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, temp, i, float, +);
-            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, temp, i, double, +);
-            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, temp, i, long double, +);
+    switch (op_flag) {
+        case SUM: {
+            for (unsigned int i = 0; i < size; ++i) {
+                if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, +);
+                if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, +);
+                if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, +);
+            }
+            break;
         }
-    } else if (op_flag == SUBTRACTION) {
-        for (unsigned int i = 0; i < size; ++i) {
-            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, temp, i, float, -);
-            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, temp, i, double, -);
-            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, temp, i, long double, -);
+
+        case SUBTRACTION: {
+            for (unsigned int i = 0; i < size; ++i) {
+                if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, -);
+                if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, -);
+                if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, -);
+            }
+            break;
         }
-    } else if (op_flag == MULTIPLICATION) {
-        for (unsigned int i = 0; i < size; ++i) {
-            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, temp, i, float, *);
-            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, temp, i, double, *);
-            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, temp, i, long double, *);
+
+        case MULTIPLICATION: {
+            for (unsigned int i = 0; i < size; ++i) {
+                if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, *);
+                if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, *);
+                if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, *);
+            }
+            break;
         }
-    } else {
-        for (unsigned int i = 0; i < size; ++i) {
-            if (a.data_type == FLOAT_32) CAST_AND_OP(a, b, temp, i, float, /);
-            if (a.data_type == FLOAT_64) CAST_AND_OP(a, b, temp, i, double, /);
-            if (a.data_type == FLOAT_128) CAST_AND_OP(a, b, temp, i, long double, /);
+
+        case DIVISION: {
+            for (unsigned int i = 0; i < size; ++i) {
+                if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, /);
+                if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, /);
+                if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, /);
+            }
+            break;
+        }
+
+        case POW: {
+            pow_tensor(c, a, b.data);
+            break;
         }
     }
 
@@ -305,15 +322,15 @@ Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsign
     return tensor;
 }
 
-Tensor* pow_tensor(Tensor* temp, Tensor tensor, void* exp) {
+Tensor* pow_tensor(Tensor* dest, Tensor tensor, void* exp) {
     unsigned int size = tensor_size(tensor.shape, tensor.rank);
-    reshape_tensor(temp, tensor.shape, tensor.rank, tensor.data_type);
+    reshape_tensor(dest, tensor.shape, tensor.rank, tensor.data_type);
     for (unsigned int i = 0; i < size; ++i) {
-        if (tensor.data_type == FLOAT_32) *CAST_PTR(temp -> data, float) = powf(*CAST_PTR(tensor.data, float), *CAST_PTR(exp, float));
-        else if (tensor.data_type == FLOAT_64) *CAST_PTR(temp -> data, double) = pow(*CAST_PTR(tensor.data, double), *CAST_PTR(exp, double));
-        else if (tensor.data_type == FLOAT_128) *CAST_PTR(temp -> data, long double) = powl(*CAST_PTR(tensor.data, long double), *CAST_PTR(exp, long double));
+        if (tensor.data_type == FLOAT_32) *CAST_PTR(dest -> data, float) = powf(*CAST_PTR(tensor.data, float), *CAST_PTR(exp, float));
+        else if (tensor.data_type == FLOAT_64) *CAST_PTR(dest -> data, double) = pow(*CAST_PTR(tensor.data, double), *CAST_PTR(exp, double));
+        else if (tensor.data_type == FLOAT_128) *CAST_PTR(dest -> data, long double) = powl(*CAST_PTR(tensor.data, long double), *CAST_PTR(exp, long double));
     }
-    return temp;
+    return dest;
 }
 
 #endif //_TENSOR_H_

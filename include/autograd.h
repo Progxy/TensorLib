@@ -8,11 +8,13 @@
 #define TENSOR_GRAPH_DIVIDE(c, a, b) graph_op(c, a, b, DIVISION)
 #define TENSOR_GRAPH_SUBTRACT(c, a, b) graph_op(c, a, b, SUBTRACTION)
 #define TENSOR_GRAPH_SUM(c, a, b) graph_op(c, a, b, SUM)
+#define TENSOR_GRAPH_POW(c, a, b) graph_op(c, a, b, POW)
 
 void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     GradNode* node = (GradNode*) calloc(1, sizeof(GradNode));
     node -> children = NULL;
     node -> value = value;
+    node -> exp = NULL;
     node -> children_count = 0;
     node -> derived_value = empty_tensor(data_type);
     value -> grad_node = node;
@@ -39,17 +41,15 @@ void add_child(GradNode* child, GradNode* parent) {
     return;
 }
 
-Tensor alloc_graph_tensor(unsigned int* shape, unsigned int rank, DataType data_type) {
-    Tensor tensor = alloc_tensor(shape, rank, data_type);
-    alloc_grad_graph_node(data_type, &tensor); 
-    return tensor;
-}
-
 Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
     op_tensor(c, a, b, operation);
     alloc_grad_graph_node(a.data_type, c);
     CAST_PTR(c -> grad_node, GradNode) -> operation = operation; 
     add_child(c -> grad_node, a.grad_node);
+    if (operation == POW) {
+        CAST_PTR(c -> grad_node, GradNode) -> exp = b.data;
+        return c;
+    }
     add_child(c -> grad_node, b.grad_node);
     return c;
 }
@@ -97,12 +97,33 @@ void derive_op(GradNode* node, GradNode* child) {
             }
             break;
         }
+
+        case POW: {
+            void* temp = calloc(1, node -> derived_value.data_type);
+            void* tmp = calloc(1, node -> derived_value.data_type);
+            mem_copy(temp, child -> exp, node -> derived_value.data_type, 1);
+            copy_tensor(&(node -> derived_value), *(node -> value));
+            pow_tensor(&(node -> derived_value), node -> derived_value, SCALAR_SUB(temp, temp, ASSIGN(tmp, 1.0L, node -> derived_value.data_type), node -> derived_value.data_type));
+            SCALAR_MUL_TENSOR(&(node -> derived_value), child -> exp);
+            free(tmp);
+            free(temp);
+            break;
+        }
     }
     return;
 }
 
 void derive_node(GradNode* node) {
-    Tensor diff = empty_tensor(node -> derived_value.data_type);
+    // Seed the leaf with 1.0
+    if (node -> children_count == 0) {
+        copy_tensor(&(node -> derived_value), *(node -> value));
+        void* value = calloc(1, node -> derived_value.data_type);
+        set_tensor(ASSIGN(value, 1.0L, node -> derived_value.data_type), node -> derived_value);
+        free(value);
+        return;
+    }
+
+    Tensor diff = alloc_tensor(node -> value -> shape, node -> value -> rank, node -> value -> data_type);
     for (unsigned int i = 0; i < node -> children_count; ++i) {
         derive_node(node -> children[i]); 
         derive_op(node, node -> children[i]);
