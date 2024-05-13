@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include "./include/autograd.h"
 
+// Be able to derive those:
+// Math: \frac{1}{1 + e^{-value}}
+// Math: 0.5x(1 + {\tanh}[{\sqrt{2/\pi}}({x} + 0.044715{x}^{3})]
+
 int main() {
     unsigned int shape[] = { 1 };    
     Tensor a = alloc_tensor(shape, ARR_SIZE(shape), FLOAT_32);
