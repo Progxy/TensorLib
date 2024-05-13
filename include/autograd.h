@@ -23,11 +23,12 @@ void alloc_grad_graph_node(DataType data_type, Tensor* value) {
 
 void deallocate_grad_graph(GradNode* node) {
     for (unsigned int i = 0; i < node -> children_count; ++i) {
-        deallocate_grad_graph(node -> children[i]);
+        if (node -> children[i] != NULL) deallocate_grad_graph(node -> children[i]);
     }
     DEALLOCATE_TENSORS(node -> derived_value);
     free(node -> children);
     free(node -> parents);
+    if (node -> exp != NULL) free(node -> exp);
     free(node);
     node = NULL;
     return;
@@ -47,7 +48,8 @@ Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
     CAST_PTR(c -> grad_node, GradNode) -> operation = operation; 
     add_child(c -> grad_node, a.grad_node);
     if (operation == POW) {
-        CAST_PTR(c -> grad_node, GradNode) -> exp = b.data;
+        CAST_PTR(c -> grad_node, GradNode) -> exp = calloc(1, a.data_type);
+        mem_copy(CAST_PTR(c -> grad_node, GradNode) -> exp, b.data, b.data_type, 1);
         return c;
     }
     add_child(c -> grad_node, b.grad_node);
@@ -101,9 +103,8 @@ void derive_op(GradNode* node, GradNode* child) {
         case POW: {
             void* temp = calloc(1, node -> derived_value.data_type);
             void* tmp = calloc(1, node -> derived_value.data_type);
-            mem_copy(temp, child -> exp, node -> derived_value.data_type, 1);
             copy_tensor(&(node -> derived_value), *(node -> value));
-            pow_tensor(&(node -> derived_value), node -> derived_value, SCALAR_SUB(temp, temp, ASSIGN(tmp, 1.0L, node -> derived_value.data_type), node -> derived_value.data_type));
+            pow_tensor(&(node -> derived_value), node -> derived_value, SCALAR_SUB(temp, child -> exp, ASSIGN(tmp, 1.0L, node -> derived_value.data_type), node -> derived_value.data_type));
             SCALAR_MUL_TENSOR(&(node -> derived_value), child -> exp);
             free(tmp);
             free(temp);
@@ -127,9 +128,7 @@ void derive_node(GradNode* node) {
     for (unsigned int i = 0; i < node -> children_count; ++i) {
         derive_node(node -> children[i]); 
         derive_op(node, node -> children[i]);
-        Tensor temp = empty_tensor(node -> derived_value.data_type);
-        SUM_TENSOR(&diff, diff, MULTIPLY_TENSOR(&temp, node -> derived_value, node -> children[i] -> derived_value));
-        DEALLOCATE_TENSORS(temp);
+        SUM_TENSOR(&diff, diff, *MULTIPLY_TENSOR(&(node -> derived_value), node -> derived_value, node -> children[i] -> derived_value));
     }
     copy_tensor(&(node -> derived_value), diff);
     DEALLOCATE_TENSORS(diff);

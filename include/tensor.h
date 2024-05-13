@@ -25,7 +25,7 @@ void fill_tensor(void* val, Tensor tensor);
 void randomize_tensor(Tensor tensor);
 void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int rank, DataType data_type);
 Tensor* copy_tensor(Tensor* dest, Tensor src);
-Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag);
+Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag);
 Tensor* cross_product_tensor(Tensor* c, Tensor a, Tensor b);
 Tensor scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b);
@@ -185,8 +185,11 @@ Tensor* copy_tensor(Tensor* dest, Tensor src) {
     return dest;
 }
 
-Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
+Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
     ASSERT(!is_valid_enum(op_flag, (unsigned char*) operators_flags, ARR_SIZE(operators_flags)), "INVALID_OPERATOR");
+    if (op_flag == POW) {
+        return pow_tensor(c, a, b.data);
+    }
     ASSERT(a.rank != b.rank, "DIM_MISMATCH");
     ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
     for (unsigned int i = 0; i < a.rank; ++i) {
@@ -233,16 +236,14 @@ Tensor op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
             break;
         }
 
-        case POW: {
-            pow_tensor(c, a, b.data);
+        default: 
             break;
-        }
     }
 
     copy_tensor(c, temp);
     DEALLOCATE_TENSORS(temp);
 
-    return *c;
+    return c;
 }
 
 Tensor* cross_product_tensor(Tensor* c, Tensor a, Tensor b) {
@@ -324,12 +325,15 @@ Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsign
 
 Tensor* pow_tensor(Tensor* dest, Tensor tensor, void* exp) {
     unsigned int size = tensor_size(tensor.shape, tensor.rank);
-    reshape_tensor(dest, tensor.shape, tensor.rank, tensor.data_type);
+    Tensor temp = empty_tensor(tensor.data_type);
+    reshape_tensor(&temp, tensor.shape, tensor.rank, tensor.data_type);
     for (unsigned int i = 0; i < size; ++i) {
-        if (tensor.data_type == FLOAT_32) *CAST_PTR(dest -> data, float) = powf(*CAST_PTR(tensor.data, float), *CAST_PTR(exp, float));
-        else if (tensor.data_type == FLOAT_64) *CAST_PTR(dest -> data, double) = pow(*CAST_PTR(tensor.data, double), *CAST_PTR(exp, double));
-        else if (tensor.data_type == FLOAT_128) *CAST_PTR(dest -> data, long double) = powl(*CAST_PTR(tensor.data, long double), *CAST_PTR(exp, long double));
+        if (tensor.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = powf(CAST_PTR(tensor.data, float)[i], *CAST_PTR(exp, float));
+        else if (tensor.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = pow(CAST_PTR(tensor.data, double)[i], *CAST_PTR(exp, double));
+        else if (tensor.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = powl(CAST_PTR(tensor.data, long double)[i], *CAST_PTR(exp, long double));
     }
+    copy_tensor(dest, temp);
+    DEALLOCATE_TENSORS(temp);
     return dest;
 }
 

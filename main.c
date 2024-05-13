@@ -13,7 +13,10 @@ int main() {
     fill_tensor(&val_b, b);
     Tensor c = empty_tensor(a.data_type);
     TENSOR_GRAPH_POW(&c, a, b);
+    DEALLOCATE_TENSORS(b);
     derive_node(a.grad_node);
     printf("dc/da: %f\n", CAST_PTR(CAST_PTR(a.grad_node, GradNode) -> derived_value.data, float)[0]);
+    deallocate_grad_graph(a.grad_node);
+    DEALLOCATE_TENSORS(a);
     return 0;
 }
