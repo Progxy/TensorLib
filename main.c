@@ -26,13 +26,12 @@ int main() {
     TENSOR_GRAPH_SUM(&d, b, pc);
     Tensor f = empty_tensor(a.data_type);
     TENSOR_GRAPH_POW(&f, d, e);
-    printf("f: %f\n", CAST_PTR(f.data, float)[0]);
     derive_node(a.grad_node);
-    printf("dc/da: %f\n", CAST_PTR(CAST_PTR(a.grad_node, GradNode) -> derived_value.data, float)[0]);
+    printf("f: %f, df/da: %f\n", CAST_PTR(f.data, float)[0], CAST_PTR(CAST_PTR(a.grad_node, GradNode) -> derived_value.data, float)[0]);
     deallocate_grad_graph(a.grad_node);
     DEALLOCATE_TENSORS(a, b, c, d, e, f);
     float res = 0.0f;
     sigmoid_func(&val_e, &res, FLOAT_32);
-    printf("f: %f, diff: %f\n", res, res * (1.0f - res)); 
+    printf("f: %f, df/da: %f\n", res, res * (1.0f - res)); 
     return 0;
 }
