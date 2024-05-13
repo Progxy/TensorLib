@@ -24,17 +24,21 @@ void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     return;  
 }
 
-void deallocate_grad_graph(GradNode* node) {
+void* deallocate_grad_graph(GradNode* node) {
+    if (node -> children == NULL) return NULL;
     for (unsigned int i = 0; i < node -> children_count; ++i) {
-        if (node -> children[i] != NULL) deallocate_grad_graph(node -> children[i]);
+        if (node -> children[i] != NULL) node -> children[i] = deallocate_grad_graph(node -> children[i]);
     }
     DEALLOCATE_TENSORS(node -> derived_value);
     free(node -> children);
+    node -> children = NULL;
     free(node -> parents);
+    node -> parents = NULL;
     if (node -> exp != NULL) free(node -> exp);
+    node -> exp = NULL;
     free(node);
     node = NULL;
-    return;
+    return node;
 }
 
 
