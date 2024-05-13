@@ -7,9 +7,9 @@
 #define TENSOR_GRAPH_POW(c, a, val, data_type) graph_op(c, a, alloc_scalar_tensor(val, data_type), POW)
 #define TENSOR_GRAPH_TANH(c, a, data_type) graph_op(c, a, empty_tensor(data_type), TANH)
 #define TENSOR_GRAPH_EXP(c, a, data_type) graph_op(c, a, empty_tensor(data_type), EXP)
-#define TENSOR_GRAPH_MULTIPLY(c, a, b) graph_op(c, a, b, MULTIPLICATION)
-#define TENSOR_GRAPH_SUBTRACT(c, a, b) graph_op(c, a, b, SUBTRACTION)
-#define TENSOR_GRAPH_DIVIDE(c, a, b) graph_op(c, a, b, DIVISION)
+#define TENSOR_GRAPH_MUL(c, a, b) graph_op(c, a, b, MULTIPLICATION)
+#define TENSOR_GRAPH_SUB(c, a, b) graph_op(c, a, b, SUBTRACTION)
+#define TENSOR_GRAPH_DIV(c, a, b) graph_op(c, a, b, DIVISION)
 #define TENSOR_GRAPH_SUM(c, a, b) graph_op(c, a, b, SUM)
 
 void alloc_grad_graph_node(DataType data_type, Tensor* value) {
