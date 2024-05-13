@@ -77,11 +77,7 @@ void test() {
     TENSOR_GRAPH_MUL(&h, g, f); // Math: 0.5x(1 + {\tanh}[{\sqrt{2/\pi}}({x} + 0.044715{x}^{3})])
     derive_node(x.grad_node);
     printf("expr_val: %f, expr_derivative_val: %f\n", CAST_PTR(h.data, float)[0], CAST_PTR(CAST_PTR(x.grad_node, GradNode) -> derived_value.data, float)[0]);
+    DEALLOCATE_GRAD_GRAPHS(x.grad_node, x1.grad_node, x2.grad_node, x3.grad_node, x4.grad_node);
     DEALLOCATE_TENSORS(x, x1, x2, x3, x4, a, b, c, d, e, f, g, h);
-    deallocate_grad_graph(x.grad_node);
-    deallocate_grad_graph(x1.grad_node);
-    deallocate_grad_graph(x2.grad_node);
-    deallocate_grad_graph(x3.grad_node);
-    deallocate_grad_graph(x4.grad_node);
     return;
 }

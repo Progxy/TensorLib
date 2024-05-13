@@ -4,6 +4,7 @@
 #include "./tensor.h"
 
 #define IS_DENOMINATOR(parent, child) parent == child -> parents[1]
+#define DEALLOCATE_GRAD_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), __VA_ARGS__)
 #define alloc_tensor_grad_graph(tensor, shape, rank, data_type) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), &tensor))
 #define TENSOR_GRAPH_POW(c, a, val, data_type) graph_op(c, a, alloc_scalar_tensor(val, data_type), POW)
 #define TENSOR_GRAPH_TANH(c, a, data_type) graph_op(c, a, empty_tensor(data_type), TANH)
@@ -41,6 +42,16 @@ void* deallocate_grad_graph(GradNode* node) {
     return node;
 }
 
+void deallocate_grad_graphs(int len, ...) {
+    va_list args;
+    va_start(args, len);
+    for (int i = 0; i < len; ++i) {
+        GradNode* node = va_arg(args, GradNode*);
+        deallocate_grad_graph(node);
+    }
+    va_end(args);
+    return;
+}
 
 void add_child(GradNode* child, GradNode* parent) {
     parent -> children = (GradNode**) realloc(parent -> children, sizeof(GradNode*) * (parent -> children_count + 1));
