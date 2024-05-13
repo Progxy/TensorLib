@@ -34,13 +34,12 @@ int main() {
     float res = 0.0f;
     sigmoid_func(&val_e, &res, FLOAT_32);
     printf("f: %f, df/da: %f\n", res, res * (1.0f - res)); 
-    test();
+    test_gelu();
     return 0;
 }
 
 // Math: 0.5x(1 + {\tanh}[{\sqrt{2/\pi}}({x} + 0.044715{x}^{3})])
-// Math: 2x + 2x^2
-void test() {
+void test_gelu() {
     unsigned int shape[] = {1};
     Tensor x, x1, x2, x3, x4;
     alloc_tensor_grad_graph(x, shape, ARR_SIZE(shape), FLOAT_32);
