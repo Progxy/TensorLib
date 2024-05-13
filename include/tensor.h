@@ -7,6 +7,7 @@
 #include "./utils.h"
 
 #define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
+#define EMPTY_TENSORS(data_type, ...) empty_tensors((sizeof((Tensor*[]){__VA_ARGS__}) / sizeof(Tensor*)), data_type, __VA_ARGS__)
 #define DEALLOCATE_TEMP_TENSORS() alloc_temp_tensor(NULL, 0, FLOAT_32, TRUE)
 #define PRINT_TENSOR(tensor, prefix) print_tensor(tensor, prefix, #tensor)
 #define POW_TENSOR(c, a, exp, data_type) op_tensor(c, a, alloc_scalar_tensor(exp, data_type), POW)
@@ -22,6 +23,7 @@
 #define SCALAR_SUM_TENSOR(a, val) scalar_op_tensor(a, val, SUM)
 
 void deallocate_tensors(int len, ...);
+void empty_tensors(int len, ...);
 Tensor alloc_tensor(unsigned int* shape, unsigned int rank, DataType data_type);
 Tensor alloc_temp_tensor(unsigned int* shape, unsigned int rank, DataType data_type, bool clean_cache_flag);
 void print_tensor(Tensor tensor, char* prefix_str, char* tensor_name);
@@ -98,12 +100,25 @@ Tensor alloc_tensor(unsigned int* shape, unsigned int rank, DataType data_type) 
     ASSERT(tensor.data == NULL, "BAD_MEMORY");
     return tensor;
 }
+
 Tensor empty_tensor(DataType data_type) {
     unsigned int shape[] = { 1 };
     Tensor tensor = alloc_tensor(shape, 0, data_type);
     free(tensor.data);
     tensor.data = NULL;
     return tensor;
+}
+
+void empty_tensors(int len, ...) {
+    va_list args;
+    va_start(args, len);
+    DataType data_type = va_arg(args, DataType);
+    for (int i = 0; i < len; ++i) {
+        Tensor* tensor = va_arg(args, Tensor*);
+        *tensor = empty_tensor(data_type);
+    }
+    va_end(args);
+    return;
 }
 
 Tensor alloc_temp_tensor(unsigned int* shape, unsigned int rank, DataType data_type, bool clean_cache_flag) {
