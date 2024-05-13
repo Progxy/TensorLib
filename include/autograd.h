@@ -160,6 +160,7 @@ void derive_node(GradNode* node) {
 }
 
 // NOTE: you can use the toposort to linearize the graph and run smoothly the forward and backward pass
+// NOTE: may also think to employ pruning techniques
 // void toposort(GradNode* graph) {
 //     return;
 // }
