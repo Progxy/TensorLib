@@ -4,28 +4,20 @@
 
 int main() {
     unsigned int shape[] = {1};
+    float val = 1.0f;
 
     Tensor x, x1, x2, x3, x4;
-    alloc_tensor_grad_graph(x, shape, ARR_SIZE(shape), FLOAT_32);
-    alloc_tensor_grad_graph(x1, shape, ARR_SIZE(shape), FLOAT_32);
-    alloc_tensor_grad_graph(x2, shape, ARR_SIZE(shape), FLOAT_32);
-    alloc_tensor_grad_graph(x3, shape, ARR_SIZE(shape), FLOAT_32);
-    alloc_tensor_grad_graph(x4, shape, ARR_SIZE(shape), FLOAT_32);
-    
-    float val = 1.0f;
-    fill_tensor(&val, x);
-    fill_tensor((val = 0.044715f, &val), x1);
-    fill_tensor((val = sqrtf(2.0f / M_PI), &val), x2);    
-    fill_tensor((val = 1.0f, &val), x3);    
-    fill_tensor((val = 0.5f, &val), x4);
+    alloc_tensor_grad_graph_filled(x, shape, ARR_SIZE(shape), FLOAT_32, &val);
+    alloc_tensor_grad_graph_filled(x1, shape, ARR_SIZE(shape), FLOAT_32, (val = 0.044715f, &val));
+    alloc_tensor_grad_graph_filled(x2, shape, ARR_SIZE(shape), FLOAT_32, (val = sqrtf(2.0f / M_PI), &val));
+    alloc_tensor_grad_graph_filled(x3, shape, ARR_SIZE(shape), FLOAT_32, (val = 1.0f, &val));
+    alloc_tensor_grad_graph_filled(x4, shape, ARR_SIZE(shape), FLOAT_32, (val = 0.5f, &val));
     
     Tensor a, b, c, d, e, f, g, h;
     EMPTY_TENSORS(x.data_type, &a, &b, &c, &d, &e, &f, &g, &h);
 
-    val = 3.0f;
-
     // Math: 0.5x(1 + {\tanh}[{\sqrt{2/\pi}}({x} + 0.044715{x}^{3})])
-    TENSOR_GRAPH_MUL(&d, x2, *TENSOR_GRAPH_SUM(&c, x, *TENSOR_GRAPH_MUL(&b, x1, *TENSOR_GRAPH_POW(&a, x, &val, x.data_type))));
+    TENSOR_GRAPH_MUL(&d, x2, *TENSOR_GRAPH_SUM(&c, x, *TENSOR_GRAPH_MUL(&b, x1, *TENSOR_GRAPH_POW(&a, x, (val = 3.0f, &val), x.data_type))));
     TENSOR_GRAPH_MUL(&h, *TENSOR_GRAPH_MUL(&g, x, x4), *TENSOR_GRAPH_SUM(&f, x3, *TENSOR_GRAPH_TANH(&e, d, x.data_type)));
     
     derive_node(x.grad_node);
