@@ -20,8 +20,10 @@ int main() {
     fill_tensor(&val_e, e);
     Tensor c = empty_tensor(a.data_type);
     TENSOR_GRAPH_EXP(&c, a);
+    Tensor pc = empty_tensor(a.data_type);
+    TENSOR_GRAPH_POW(&pc, c, e);
     Tensor d = empty_tensor(a.data_type);
-    TENSOR_GRAPH_SUM(&d, b, c);
+    TENSOR_GRAPH_SUM(&d, b, pc);
     Tensor f = empty_tensor(a.data_type);
     TENSOR_GRAPH_POW(&f, d, e);
     printf("f: %f\n", CAST_PTR(f.data, float)[0]);
@@ -30,7 +32,7 @@ int main() {
     deallocate_grad_graph(a.grad_node);
     DEALLOCATE_TENSORS(a, b, c, d, e, f);
     float res = 0.0f;
-    sigmoid_func(&val, &res, FLOAT_32);
-    printf("diff: %f\n", res * (1.0f - res)); 
+    sigmoid_func(&val_e, &res, FLOAT_32);
+    printf("f: %f, diff: %f\n", res, res * (1.0f - res)); 
     return 0;
 }
