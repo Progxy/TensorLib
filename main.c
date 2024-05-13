@@ -5,6 +5,8 @@
 // Be able to derive those:
 // Math: (1 + e^{-value})^{-1}
 
+void test();
+
 int main() {
     unsigned int shape[] = { 1 };    
     Tensor a = alloc_tensor(shape, ARR_SIZE(shape), FLOAT_32);
@@ -32,20 +34,30 @@ int main() {
     float res = 0.0f;
     sigmoid_func(&val_e, &res, FLOAT_32);
     printf("f: %f, df/da: %f\n", res, res * (1.0f - res)); 
+    test();
     return 0;
 }
 
 // Math: 0.5x(1 + {\tanh}[{\sqrt{2/\pi}}({x} + 0.044715{x}^{3})]
 // Math: 2x + 2x^2
-void test_gelu() {
+void test() {
     unsigned int shape[] = {1};
     float val = 1.0f;
-    Tensor x = alloc_tensor(shape, ARR_SIZE(shape), FLOAT_32);
+    Tensor x, temp;
+    alloc_tensor_grad_graph(x, shape, ARR_SIZE(shape), FLOAT_32);
+    alloc_tensor_grad_graph(temp, shape, ARR_SIZE(shape), FLOAT_32);
     fill_tensor(&val, x);
-    alloc_grad_graph_node(x.data_type, &x);
+    val = 0.044715f;
+    fill_tensor(&val, temp);
     val = 3.0f;
     Tensor a = empty_tensor(x.data_type);
-    TENSOR_GRAPH_POW(&a, x, &val, x.data_type);
-    DEALLOCATE_TENSORS(x);
+    TENSOR_GRAPH_POW(&a, x, &val, x.data_type); // Math: x^3
+    Tensor b = empty_tensor(x.data_type);
+    TENSOR_GRAPH_MUL(&b, a, temp); // Math: 0.044715x^3
+    Tensor c = empty_tensor(x.data_type);
+    TENSOR_GRAPH_SUM(&c, x, b); // Math: x + 0.044715x^3
+    derive_node(x.grad_node);
+    printf("expr_val: %f, expr_derivative_val: %f\n", CAST_PTR(c.data, float)[0], CAST_PTR(CAST_PTR(x.grad_node, GradNode) -> derived_value.data, float)[0]);
+    DEALLOCATE_TENSORS(x, temp, a, b, c);
     return;
 }
