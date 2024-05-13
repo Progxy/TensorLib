@@ -140,9 +140,24 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = powl(*CAST_PTR(a, long double), *CAST_PTR(b, long double));
             break;
         }
+
+        case EXP: {
+            if (data_type == FLOAT_32) *CAST_PTR(res, float) = expf(*CAST_PTR(a, float));
+            else if (data_type == FLOAT_64) *CAST_PTR(res, double) = exp(*CAST_PTR(a, double));
+            else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = expl(*CAST_PTR(a, long double));
+            break;
+        }
     }
 
     return res;
+}
+
+void* sigmoid_func(void* value, void* result, DataType data_type) {
+    // Math: \frac{1}{1 + e^{-value}}
+    if (data_type == FLOAT_32) *CAST_PTR(result, float) = (1.0f / (1.0f + expf(*CAST_PTR(value, float) * -1)));
+    else if (data_type == FLOAT_64) *CAST_PTR(result, double) = (1.0f / (1.0f + exp(*CAST_PTR(value, double) * -1)));
+    else if (data_type == FLOAT_128) *CAST_PTR(result, long double) = (1.0f / (1.0f + expl(*CAST_PTR(value, long double) * -1)));
+    return result;
 }
 
 #endif //_UTILS_H_

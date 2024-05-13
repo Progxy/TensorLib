@@ -30,6 +30,7 @@ Tensor* cross_product_tensor(Tensor* c, Tensor a, Tensor b);
 Tensor scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b);
 Tensor* pow_tensor(Tensor* dest, Tensor tensor, void* exp);
+Tensor* exp_tensor(Tensor* dest, Tensor tensor);
 
 /* ------------------------------------------------------------------------------------------------------------------------- */
 
@@ -189,6 +190,8 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
     ASSERT(!is_valid_enum(op_flag, (unsigned char*) operators_flags, ARR_SIZE(operators_flags)), "INVALID_OPERATOR");
     if (op_flag == POW) {
         return pow_tensor(c, a, b.data);
+    } else if (op_flag == EXP) {
+        return exp_tensor(c, a);
     }
     ASSERT(a.rank != b.rank, "DIM_MISMATCH");
     ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
@@ -331,6 +334,20 @@ Tensor* pow_tensor(Tensor* dest, Tensor tensor, void* exp) {
         if (tensor.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = powf(CAST_PTR(tensor.data, float)[i], *CAST_PTR(exp, float));
         else if (tensor.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = pow(CAST_PTR(tensor.data, double)[i], *CAST_PTR(exp, double));
         else if (tensor.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = powl(CAST_PTR(tensor.data, long double)[i], *CAST_PTR(exp, long double));
+    }
+    copy_tensor(dest, temp);
+    DEALLOCATE_TENSORS(temp);
+    return dest;
+}
+
+Tensor* exp_tensor(Tensor* dest, Tensor tensor) {
+    unsigned int size = tensor_size(tensor.shape, tensor.rank);
+    Tensor temp = empty_tensor(tensor.data_type);
+    reshape_tensor(&temp, tensor.shape, tensor.rank, tensor.data_type);
+    for (unsigned int i = 0; i < size; ++i) {
+        if (tensor.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = expf(CAST_PTR(tensor.data, float)[i]);
+        else if (tensor.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = exp(CAST_PTR(tensor.data, double)[i]);
+        else if (tensor.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = expl(CAST_PTR(tensor.data, long double)[i]);
     }
     copy_tensor(dest, temp);
     DEALLOCATE_TENSORS(temp);

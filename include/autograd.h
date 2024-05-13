@@ -9,6 +9,7 @@
 #define TENSOR_GRAPH_SUBTRACT(c, a, b) graph_op(c, a, b, SUBTRACTION)
 #define TENSOR_GRAPH_SUM(c, a, b) graph_op(c, a, b, SUM)
 #define TENSOR_GRAPH_POW(c, a, b) graph_op(c, a, b, POW)
+#define TENSOR_GRAPH_EXP(c, a) graph_op(c, a, empty_tensor(a.data_type), EXP)
 
 void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     GradNode* node = (GradNode*) calloc(1, sizeof(GradNode));
@@ -47,7 +48,8 @@ Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
     alloc_grad_graph_node(a.data_type, c);
     CAST_PTR(c -> grad_node, GradNode) -> operation = operation; 
     add_child(c -> grad_node, a.grad_node);
-    if (operation == POW) {
+    if (operation == EXP) return c;
+    else if (operation == POW) {
         CAST_PTR(c -> grad_node, GradNode) -> exp = calloc(1, a.data_type);
         mem_copy(CAST_PTR(c -> grad_node, GradNode) -> exp, b.data, b.data_type, 1);
         return c;
@@ -66,7 +68,8 @@ void derive_op(GradNode* node, GradNode* child) {
         case SUM: {
             void* temp = calloc(1, node -> derived_value.data_type);
             ASSIGN(temp, 1.0L, node -> derived_value.data_type);
-            set_tensor(temp, node -> derived_value);
+            reshape_tensor(&(node -> derived_value), node -> value -> shape, node -> value -> rank, node -> value -> data_type);
+            fill_tensor(temp, node -> derived_value);
             free(temp);
             break;       
         }
@@ -74,7 +77,8 @@ void derive_op(GradNode* node, GradNode* child) {
         case SUBTRACTION: {
             void* temp = calloc(1, node -> derived_value.data_type);
             ASSIGN(temp, -1.0L, node -> derived_value.data_type);
-            set_tensor(temp, node -> derived_value);
+            reshape_tensor(&(node -> derived_value), node -> value -> shape, node -> value -> rank, node -> value -> data_type);
+            fill_tensor(temp, node -> derived_value);
             free(temp);
             break;        
         }
@@ -108,6 +112,11 @@ void derive_op(GradNode* node, GradNode* child) {
             SCALAR_MUL_TENSOR(&(node -> derived_value), child -> exp);
             free(tmp);
             free(temp);
+            break;
+        }
+
+        case EXP: {
+            copy_tensor(&(node -> derived_value), *(child -> value));
             break;
         }
     }
