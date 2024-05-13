@@ -2,6 +2,7 @@
 #define _TENSOR_H_
 
 #include <stdarg.h>
+#define __USE_MISC
 #include <math.h>
 #include "./utils.h"
 
