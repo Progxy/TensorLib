@@ -31,7 +31,7 @@ void* deallocate_grad_graph(GradNode* node) {
     for (unsigned int i = 0; i < node -> children_count; ++i) {
         if (node -> children[i] != NULL) node -> children[i] = deallocate_grad_graph(node -> children[i]);
     }
-    DEALLOCATE_TENSORS(node -> derived_value);
+    DEALLOCATE_TENSORS(node -> derived_value, *(node -> value));
     free(node -> children);
     node -> children = NULL;
     free(node -> parents);
