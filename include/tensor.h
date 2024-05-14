@@ -375,10 +375,13 @@ Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsign
 }
 
 Tensor* negate_tensor(Tensor* dest, Tensor tensor) {
-    copy_tensor(dest, tensor);
+    Tensor temp = empty_tensor(tensor.data_type);
+    copy_tensor(&temp, tensor);
     void* neg = calloc(1, tensor.data_type);
-    SCALAR_MUL_TENSOR(dest, ASSIGN(neg, -1.0L, tensor.data_type));
+    SCALAR_MUL_TENSOR(&temp, ASSIGN(neg, -1.0L, tensor.data_type));
     free(neg);
+    copy_tensor(dest, temp);
+    DEALLOCATE_TENSORS(temp);
     return dest;
 }
 

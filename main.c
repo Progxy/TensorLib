@@ -3,6 +3,7 @@
 #include "./include/autograd.h"
 
 void test();
+void div_test();
 
 int main() {
     unsigned int shape[] = {1};
@@ -26,6 +27,7 @@ int main() {
     printf("expr_val: %f, expr_derivative_val: %f\n", CAST_PTR(h.data, float)[0], CAST_PTR(CAST_PTR(x.grad_node, GradNode) -> derived_value.data, float)[0]);
     DEALLOCATE_GRAD_GRAPHS(x.grad_node, x1.grad_node, x2.grad_node, x3.grad_node, x4.grad_node);
     test();
+    div_test();
     return 0;
 }
 
@@ -55,5 +57,21 @@ void test() {
     float res = 0.0f;
     sigmoid_func(&val_e, &res, FLOAT_32);
     printf("f: %f, df/da: %f\n", res, res * (1.0f - res)); 
+    return;
+}
+
+void div_test() {
+    unsigned int shape[] = {1};
+    float val = 1.0f;
+    Tensor x, x1;
+    alloc_tensor_grad_graph_filled(x, shape, ARR_SIZE(shape), FLOAT_32, &val);
+    alloc_tensor_grad_graph_filled(x1, shape, ARR_SIZE(shape), FLOAT_32, (val = 3.0f, &val));
+
+    Tensor y = empty_tensor(x.data_type);
+    TENSOR_GRAPH_DIV(&y, x1, x);
+    printf("value: %f\n", CAST_PTR(y.data, float)[0]);
+    derive_node(x.grad_node);
+    printf("dy/dx: %f\n", CAST_PTR(CAST_PTR(x.grad_node, GradNode) -> derived_value.data, float)[0]);
+    DEALLOCATE_GRAD_GRAPHS(x.grad_node, x1.grad_node);
     return;
 }
