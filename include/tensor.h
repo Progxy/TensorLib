@@ -33,6 +33,7 @@ Tensor* cross_product_tensor(Tensor* c, Tensor a, Tensor b);
 Tensor* scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b);
 Tensor alloc_scalar_tensor(void* val, DataType data_type);
+Tensor* negate_tensor(Tensor* dest, Tensor tensor);
 
 /* ------------------------------------------------------------------------------------------------------------------------- */
 
@@ -371,6 +372,14 @@ Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsign
     free(counter);
 
     return tensor;
+}
+
+Tensor* negate_tensor(Tensor* dest, Tensor tensor) {
+    copy_tensor(dest, tensor);
+    void* neg = calloc(1, tensor.data_type);
+    SCALAR_MUL_TENSOR(dest, ASSIGN(neg, -1.0L, tensor.data_type));
+    free(neg);
+    return dest;
 }
 
 #endif //_TENSOR_H_
