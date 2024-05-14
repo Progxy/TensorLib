@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include "./include/autograd.h"
 
-void test();
-void div_test();
+void test_sigmoid();
 
 int main() {
     unsigned int shape[] = {1};
@@ -26,36 +25,32 @@ int main() {
     derive_node(x.grad_node);
     printf("expr_val: %f, expr_derivative_val: %f\n", CAST_PTR(h.data, float)[0], CAST_PTR(CAST_PTR(x.grad_node, GradNode) -> derived_value.data, float)[0]);
     DEALLOCATE_GRAD_GRAPHS(x.grad_node, x1.grad_node, x2.grad_node, x3.grad_node, x4.grad_node);
-    test();
-    div_test();
+    test_sigmoid();
     return 0;
 }
 
-void test() {
+void test_sigmoid() {
     unsigned int shape[] = { 1 };    
-    Tensor a = alloc_tensor(shape, ARR_SIZE(shape), FLOAT_32);
-    Tensor b = alloc_tensor(shape, ARR_SIZE(shape), FLOAT_32);
-    Tensor e = alloc_tensor(shape, ARR_SIZE(shape), FLOAT_32);
-    alloc_grad_graph_node(a.data_type, &a);
-    alloc_grad_graph_node(b.data_type, &b);
     float val = 1.0f;
-    float val_e = -1.0f;
-    fill_tensor(&val_e, a);
-    fill_tensor(&val, b);
-    fill_tensor(&val_e, e);
-    Tensor c = empty_tensor(a.data_type);
-    TENSOR_GRAPH_EXP(&c, a, a.data_type);
-    Tensor pc = empty_tensor(a.data_type);
-    TENSOR_GRAPH_POW(&pc, c, &val_e, c.data_type);
-    Tensor d = empty_tensor(a.data_type);
-    TENSOR_GRAPH_SUM(&d, b, pc);
-    Tensor f = empty_tensor(a.data_type);
-    TENSOR_GRAPH_POW(&f, d, &val_e, d.data_type);
-    derive_node(a.grad_node);
-    printf("f: %f, df/da: %f\n", CAST_PTR(f.data, float)[0], CAST_PTR(CAST_PTR(a.grad_node, GradNode) -> derived_value.data, float)[0]);
-    deallocate_grad_graph(a.grad_node);
+    
+    Tensor x, x1;
+    alloc_tensor_grad_graph_filled(x, shape, ARR_SIZE(shape), FLOAT_32, &val);
+    alloc_tensor_grad_graph_filled(x1, shape, ARR_SIZE(shape), FLOAT_32, &val);
+
+    Tensor a, b, c, d;
+    EMPTY_TENSORS(x.data_type, &a, &b, &c, &d);
+
+    // Math: \frac{1}{1 + e^{-x}}
+    TENSOR_GRAPH_POW(&b, *TENSOR_GRAPH_EXP(&a, x, x.data_type), (val = -1.0f, &val), x.data_type);
+    TENSOR_GRAPH_POW(&d, *TENSOR_GRAPH_SUM(&c, x1, b), &val, x.data_type);
+    
+    derive_node(x.grad_node);
+    printf("f: %f, df/da: %f\n", CAST_PTR(d.data, float)[0], CAST_PTR(CAST_PTR(x.grad_node, GradNode) -> derived_value.data, float)[0]);
+    DEALLOCATE_GRAD_GRAPHS(x.grad_node, x1.grad_node);
+    
     float res = 0.0f;
-    sigmoid_func(&val_e, &res, FLOAT_32);
+    val = 1.0f;
+    sigmoid_func(&val, &res, FLOAT_32);
     printf("f: %f, df/da: %f\n", res, res * (1.0f - res)); 
     return;
 }
