@@ -2,6 +2,9 @@
 #define _UTILS_H_
 
 #include <time.h>
+#include <stdarg.h>
+#define __USE_MISC
+#include <math.h>
 #include "./types.h"
 
 #define CAST_AND_OP_INDEX(a, b, c, index, type, op) CAST_PTR(c.data, type)[index] = CAST_AND_OP(CAST_PTR_AT_INDEX(a.data, type, index), CAST_PTR_AT_INDEX(b.data, type, index), type, op) 
@@ -24,8 +27,6 @@
 #define NOT_USED(var) (void) var
 #define MAX(a, b) (a >= b ? a : b)
 #define MIN(a, b) (a <= b ? a : b)
-#define FALSE 0
-#define TRUE 1
 
 void assert(bool condition, unsigned int line, char* file, char* err_msg) {
     if (condition) {
