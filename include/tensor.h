@@ -1,9 +1,6 @@
 #ifndef _TENSOR_H_
 #define _TENSOR_H_
 
-#include <stdarg.h>
-#define __USE_MISC
-#include <math.h>
 #include "./utils.h"
 
 #define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
@@ -17,7 +14,7 @@
 #define SUBTRACT_TENSOR(c, a, b) op_tensor(c, a, b, SUBTRACTION)
 #define DIVIDE_TENSOR(c, a, b) op_tensor(c, a, b, DIVISION)
 #define SUM_TENSOR(c, a, b) op_tensor(c, a, b, SUM)
-#define SCALAR_SUB_TENSOR(c, a, val) scalar_op_tensor(c, a, val, SUBTRACTION)
+#define SCALAR_SUB_TENSOR(a, val) scalar_op_tensor(a, val, SUBTRACTION)
 #define SCALAR_MUL_TENSOR(a, val) scalar_op_tensor(a, val, MULTIPLICATION)
 #define SCALAR_DIV_TENSOR(a, val) scalar_op_tensor(a, val, DIVISION)
 #define SCALAR_SUM_TENSOR(a, val) scalar_op_tensor(a, val, SUM)

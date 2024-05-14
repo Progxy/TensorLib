@@ -1,6 +1,9 @@
 #ifndef _TYPES_H_
 #define _TYPES_H_
 
+#define FALSE 0
+#define TRUE 1
+
 typedef unsigned char bool;
 
 typedef enum DataType { FLOAT_32 = sizeof(float), FLOAT_64 = sizeof(double), FLOAT_128 = sizeof(long double) } DataType;
