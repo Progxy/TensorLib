@@ -143,6 +143,9 @@ void derive_op(GradNode* node, GradNode* child) {
     return;
 }
 
+// NOTE: add two both modes the cross_product_tensor differentiation
+
+// Derive using forward-mode
 void derive_node(GradNode* node) {
     // Seed the leaf with 1.0
     if (node -> children_count == 0) {
@@ -161,6 +164,11 @@ void derive_node(GradNode* node) {
     }
     copy_tensor(&(node -> derived_value), diff);
     DEALLOCATE_TENSORS(diff);
+    return;
+}
+
+// Derive using reverse-mode
+void derive_r_node(GradNode* node) {
     return;
 }
 
