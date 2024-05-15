@@ -4,7 +4,8 @@
 #include "./tensor.h"
 
 #define IS_DENOMINATOR(parent, child) parent == child -> parents[1]
-#define DEALLOCATE_GRAD_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), __VA_ARGS__)
+#define DEALLOCATE_GRAD_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) FALSE, __VA_ARGS__)
+#define DEALLOCATE_GRAD_SINGLE_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) TRUE, __VA_ARGS__)
 #define alloc_tensor_grad_graph_filled(tensor, shape, rank, data_type, val) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), fill_tensor(val, tensor), &tensor))
 #define alloc_tensor_grad_graph(tensor, shape, rank, data_type) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), &tensor))
 #define TENSOR_GRAPH_POW(c, a, val, data_type) graph_op(c, a, alloc_scalar_tensor(val, data_type), POW)
@@ -26,10 +27,10 @@ void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     return;  
 }
 
-void* deallocate_grad_graph(GradNode* node) {
+void* deallocate_grad_graph(bool single_removal_flag, GradNode* node) {
     if (node -> children == NULL) return NULL;
-    for (unsigned int i = 0; i < node -> children_count; ++i) {
-        if (node -> children[i] != NULL) node -> children[i] = deallocate_grad_graph(node -> children[i]);
+    for (unsigned int i = 0; (i < node -> children_count) && !single_removal_flag; ++i) {
+        if (node -> children[i] != NULL) node -> children[i] = deallocate_grad_graph(single_removal_flag, node -> children[i]);
     }
     DEALLOCATE_TENSORS(node -> derived_value, *(node -> value));
     free(node -> children);
@@ -46,9 +47,10 @@ void* deallocate_grad_graph(GradNode* node) {
 void deallocate_grad_graphs(int len, ...) {
     va_list args;
     va_start(args, len);
+    bool single_removal_flag = va_arg(args, int);
     for (int i = 0; i < len; ++i) {
         GradNode* node = va_arg(args, GradNode*);
-        deallocate_grad_graph(node);
+        deallocate_grad_graph(single_removal_flag, node);
     }
     va_end(args);
     return;
