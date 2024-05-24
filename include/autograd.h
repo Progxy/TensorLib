@@ -23,6 +23,7 @@ void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     node -> exp = NULL;
     node -> children_count = 0;
     node -> derived_value = empty_tensor(data_type);
+    reshape_tensor(&(node -> derived_value), node -> value -> shape, node -> value -> rank, node -> value -> data_type);
     value -> grad_node = node;
     return;  
 }
@@ -169,6 +170,17 @@ void derive_node(GradNode* node) {
 
 // Derive using reverse-mode
 void derive_r_node(GradNode* node) {
+    if (node -> parents_count == 0) return;
+
+    for (unsigned int i = 0; i < node -> parents_count; ++i) {
+        Tensor temp = empty_tensor(node -> derived_value.data_type);
+        copy_tensor(&temp, node -> parents[i] -> derived_value);
+        derive_op(node -> parents[i], node);
+        SUM_TENSOR(&(node -> parents[i] -> derived_value), node -> parents[i] -> derived_value, temp);
+        DEALLOCATE_TENSORS(temp);
+        derive_r_node(node -> parents[i]);
+    }
+    
     return;
 }
 

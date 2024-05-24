@@ -6,7 +6,7 @@ void test_sigmoid();
 void test_gelu();
 
 int main() {
-    test_gelu();
+    //test_gelu();
     test_sigmoid();
     return 0;
 }
@@ -26,7 +26,7 @@ void test_sigmoid() {
     TENSOR_GRAPH_POW(&b, *TENSOR_GRAPH_EXP(&a, x, x.data_type), (val = -1.0f, &val), x.data_type);
     TENSOR_GRAPH_POW(&d, *TENSOR_GRAPH_SUM(&c, x1, b), &val, x.data_type);
     
-    derive_node(x.grad_node);
+    derive_r_node(x.grad_node);
     printf("f: %f, df/da: %f\n", CAST_PTR(d.data, float)[0], CAST_PTR(CAST_PTR(x.grad_node, GradNode) -> derived_value.data, float)[0]);
     DEALLOCATE_GRAD_GRAPHS(x.grad_node, x1.grad_node);
     
