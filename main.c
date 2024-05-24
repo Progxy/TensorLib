@@ -5,9 +5,25 @@
 void test_sigmoid();
 void test_gelu();
 
+#define DERIVED_VALUE(node) CAST_PTR(CAST_PTR(node, GradNode) -> derived_value.data, float)
+
 int main() {
+    unsigned int shape[] = { 1 };    
+    float val = 1.0f;
+    
+    Tensor x, x1;
+    alloc_tensor_grad_graph_filled(x, shape, ARR_SIZE(shape), FLOAT_32, &val);
+    alloc_tensor_grad_graph_filled(x1, shape, ARR_SIZE(shape), FLOAT_32, (val = 2.0f, &val));
+
+    Tensor c = empty_tensor(x.data_type);
+    TENSOR_GRAPH_MUL(&c, x, x1);
+
+    derive_r_node(c.grad_node);
+    printf("c: %f, dc/dx: %f, dc/dx1: %f\n", CAST_PTR(c.data, float)[0], DERIVED_VALUE(x.grad_node)[0], DERIVED_VALUE(x1.grad_node)[0]);
+    DEALLOCATE_GRAD_GRAPHS(x.grad_node, x1.grad_node);
+
     //test_gelu();
-    test_sigmoid();
+    //test_sigmoid();
     return 0;
 }
 
@@ -26,7 +42,7 @@ void test_sigmoid() {
     TENSOR_GRAPH_POW(&b, *TENSOR_GRAPH_EXP(&a, x, x.data_type), (val = -1.0f, &val), x.data_type);
     TENSOR_GRAPH_POW(&d, *TENSOR_GRAPH_SUM(&c, x1, b), &val, x.data_type);
     
-    derive_r_node(x.grad_node);
+    derive_r_node(d.grad_node);
     printf("f: %f, df/da: %f\n", CAST_PTR(d.data, float)[0], CAST_PTR(CAST_PTR(x.grad_node, GradNode) -> derived_value.data, float)[0]);
     DEALLOCATE_GRAD_GRAPHS(x.grad_node, x1.grad_node);
     
