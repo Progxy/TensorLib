@@ -169,16 +169,23 @@ void derive_node(GradNode* node) {
 }
 
 // Derive using reverse-mode
-void derive_r_node(GradNode* node) {
+void derive_r_node(GradNode* node, bool is_sink) {
     if (node -> parents_count == 0) return;
+    else if (is_sink) {
+        void* val = calloc(1, node -> derived_value.data_type);
+        ASSIGN(val, 1.0L, node -> derived_value.data_type);
+        set_tensor(val, node -> derived_value);
+        free(val);
+    }
 
     for (unsigned int i = 0; i < node -> parents_count; ++i) {
         Tensor temp = empty_tensor(node -> derived_value.data_type);
         copy_tensor(&temp, node -> parents[i] -> derived_value);
         derive_op(node -> parents[i], node);
+        MULTIPLY_TENSOR(&(node -> parents[i] -> derived_value), node -> parents[i] -> derived_value, node -> derived_value);
         SUM_TENSOR(&(node -> parents[i] -> derived_value), node -> parents[i] -> derived_value, temp);
         DEALLOCATE_TENSORS(temp);
-        derive_r_node(node -> parents[i]);
+        derive_r_node(node -> parents[i], FALSE);
     }
     
     return;
