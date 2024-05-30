@@ -3,10 +3,12 @@
 
 #include "./utils.h"
 
-#define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
 #define EMPTY_TENSORS(data_type, ...) empty_tensors((sizeof((Tensor*[]){__VA_ARGS__}) / sizeof(Tensor*)), data_type, __VA_ARGS__)
+#define DEALLOCATE_TENSORS(...) deallocate_tensors(sizeof((Tensor[]){__VA_ARGS__}) / sizeof(Tensor), __VA_ARGS__)
+#define RESHAPE_TENSOR(dest, tensor) reshape_tensor(dest, (tensor).shape, (tensor).rank, (tensor).data_type)
 #define DEALLOCATE_TEMP_TENSORS() alloc_temp_tensor(NULL, 0, FLOAT_32, TRUE)
 #define PRINT_TENSOR(tensor, prefix) print_tensor(tensor, prefix, #tensor)
+#define TENSOR_SIZE(tensor) tensor_size((tensor).shape, (tensor).rank)
 #define POW_TENSOR(c, a, exp, data_type) op_tensor(c, a, alloc_scalar_tensor(exp, data_type), POW)
 #define TANH_TENSOR(c, a, data_type) op_tensor(c, a, empty_tensor(data_type), TANH)
 #define EXP_TENSOR(c, a, data_type) op_tensor(c, a, empty_tensor(data_type), EXP)
@@ -151,8 +153,8 @@ void print_tensor(Tensor tensor, char* prefix_str, char* tensor_name) {
     printf("\n%s", prefix_str);
     for (unsigned int i = 0; i < size; ++i) {
         if (tensor.data_type == FLOAT_32) printf("%f", CAST_PTR(tensor.data, float)[i]);
-        if (tensor.data_type == FLOAT_64) printf("%lf", CAST_PTR(tensor.data, double)[i]);
-        if (tensor.data_type == FLOAT_128) printf("%Lf", CAST_PTR(tensor.data, long double)[i]);
+        else if (tensor.data_type == FLOAT_64) printf("%lf", CAST_PTR(tensor.data, double)[i]);
+        else if (tensor.data_type == FLOAT_128) printf("%Lf", CAST_PTR(tensor.data, long double)[i]);
         insert_spacing(i, prefix_str, tensor);
     }
     printf("\n");
@@ -163,8 +165,8 @@ void fill_tensor(void* val, Tensor tensor) {
     unsigned int size = tensor_size(tensor.shape, tensor.rank);
     for (unsigned int i = 0; i < size; ++i) {
         if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = *CAST_PTR(val, float);
-        if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = *CAST_PTR(val, double);
-        if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = *CAST_PTR(val, long double);
+        else if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = *CAST_PTR(val, double);
+        else if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = *CAST_PTR(val, long double);
     }
     return;
 }
@@ -173,8 +175,8 @@ void set_tensor(void* new_data, Tensor tensor) {
     unsigned int size = tensor_size(tensor.shape, tensor.rank);
     for (unsigned int i = 0; i < size; ++i) {
         if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = CAST_PTR(new_data, float)[i];
-        if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = CAST_PTR(new_data, double)[i];
-        if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = CAST_PTR(new_data, long double)[i];
+        else if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = CAST_PTR(new_data, double)[i];
+        else if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = CAST_PTR(new_data, long double)[i];
     }
     return;
 }
@@ -184,8 +186,8 @@ void randomize_tensor(Tensor tensor) {
     for (unsigned int i = 0; i < size; ++i) {
         long double value = (long double) rand() / RAND_MAX;
         if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = (float) value;
-        if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = (double) value;
-        if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = value;
+        else if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = (double) value;
+        else if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = value;
     }
     return;
 }
@@ -230,8 +232,8 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         case SUM: {
             for (unsigned int i = 0; i < size; ++i) {
                 if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, +);
-                if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, +);
-                if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, +);
+                else if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, +);
+                else if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, +);
             }
             break;
         }
@@ -239,8 +241,8 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         case SUBTRACTION: {
             for (unsigned int i = 0; i < size; ++i) {
                 if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, -);
-                if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, -);
-                if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, -);
+                else if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, -);
+                else if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, -);
             }
             break;
         }
@@ -248,8 +250,8 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         case MULTIPLICATION: {
             for (unsigned int i = 0; i < size; ++i) {
                 if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, *);
-                if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, *);
-                if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, *);
+                else if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, *);
+                else if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, *);
             }
             break;
         }
@@ -257,8 +259,8 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         case DIVISION: {
             for (unsigned int i = 0; i < size; ++i) {
                 if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, /);
-                if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, /);
-                if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, /);
+                else if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, /);
+                else if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, /);
             }
             break;
         }
