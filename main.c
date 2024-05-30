@@ -9,8 +9,8 @@ void test_gelu();
 #define DERIVED_VALUE(node, type) CAST_PTR(DERIVED_TENSOR(node).data, type)
 
 int main() {
-    test_gelu();
     test_sigmoid();
+    test_gelu();
     return 0;
 }
 
@@ -29,9 +29,9 @@ void test_sigmoid() {
     TENSOR_GRAPH_POW(&b, *TENSOR_GRAPH_EXP(&a, x, x.data_type), (val = -1.0f, &val), x.data_type);
     TENSOR_GRAPH_POW(&d, *TENSOR_GRAPH_SUM(&c, x1, b), &val, x.data_type);
     
-    derive_r_node(d.grad_node, TRUE);
     printf("Result: \n");
     PRINT_TENSOR(d, "\t");
+    derive_r_node(d.grad_node, TRUE);
     printf("Diff result: \n");
     PRINT_TENSOR(DERIVED_TENSOR(x.grad_node), "\t");
     DEALLOCATE_GRAD_GRAPHS(x.grad_node, x1.grad_node);

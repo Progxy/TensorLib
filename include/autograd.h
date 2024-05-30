@@ -152,7 +152,7 @@ void derive_node(GradNode* node) {
     if (node -> children_count == 0) {
         copy_tensor(&(node -> derived_value), *(node -> value));
         void* value = calloc(1, node -> derived_value.data_type);
-        set_tensor(ASSIGN(value, 1.0L, node -> derived_value.data_type), node -> derived_value);
+        fill_tensor(ASSIGN(value, 1.0L, node -> derived_value.data_type), node -> derived_value);
         free(value);
         return;
     }
@@ -163,8 +163,10 @@ void derive_node(GradNode* node) {
         derive_op(node, node -> children[i]);
         SUM_TENSOR(&diff, diff, *MULTIPLY_TENSOR(&(node -> derived_value), node -> derived_value, node -> children[i] -> derived_value));
     }
+
     copy_tensor(&(node -> derived_value), diff);
     DEALLOCATE_TENSORS(diff);
+    
     return;
 }
 
@@ -174,7 +176,7 @@ void derive_r_node(GradNode* node, bool is_sink) {
     else if (is_sink) {
         void* val = calloc(1, node -> derived_value.data_type);
         ASSIGN(val, 1.0L, node -> derived_value.data_type);
-        set_tensor(val, node -> derived_value);
+        fill_tensor(val, node -> derived_value);
         free(val);
     }
 
