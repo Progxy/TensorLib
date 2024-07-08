@@ -337,40 +337,6 @@ Tensor* scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag) {
     return tensor;
 }
 
-Tensor* tensor_dot_product(Tensor* c, Tensor a, Tensor b) {
-    Tensor temp = empty_tensor(a.data_type);
-
-    unsigned int similar_indices_count = 0;
-    for (unsigned int i = 0; i < (a.rank - 1) && i < (b.rank - 1); ++i, ++similar_indices_count) {
-        if (b.shape[i] != a.shape[a.rank - i - 1]) break;
-    }
-    unsigned int new_rank = a.rank + b.rank - (2 * similar_indices_count);
-    unsigned int* new_shape = (unsigned int*) calloc(new_rank, sizeof(unsigned int));
-    mem_copy(new_shape, a.shape, a.rank - similar_indices_count, sizeof(unsigned int));
-    mem_copy(new_shape + (a.rank - similar_indices_count), b.shape + similar_indices_count, b.rank - similar_indices_count, sizeof(unsigned int));
-    reshape_tensor(&temp, new_shape, new_rank, a.data_type);
-    free(new_shape);
-
-    unsigned int ext_size = tensor_size(a.shape, a.rank - similar_indices_count);
-    unsigned int int_size = tensor_size(b.shape + similar_indices_count, b.rank - similar_indices_count);
-    unsigned int common_size = tensor_size(a.shape + (a.rank - similar_indices_count), similar_indices_count);
-
-    for (unsigned int i = 0; i < ext_size; ++i) {
-        for (unsigned int j = 0; j < int_size; ++j) {
-            for (unsigned int k = 0; k < common_size; ++k) {
-                if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i * int_size + j] += CAST_PTR(a.data, float)[i * common_size + k] * CAST_PTR(b.data, float)[k * int_size + j];
-                else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * int_size + j] += CAST_PTR(a.data, double)[i * common_size + k] * CAST_PTR(b.data, double)[k * int_size + j];
-                else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * int_size + j] += CAST_PTR(a.data, long double)[i * common_size + k] * CAST_PTR(b.data, long double)[k * int_size + j];
-            }
-        } 
-    }
-
-    copy_tensor(c, temp);
-    DEALLOCATE_TENSORS(temp);
-
-    return c;
-}
-
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b) {
     ASSERT((contraction_index_a == contraction_index_b) || (contraction_index_a >= tensor -> rank) || (contraction_index_b >= tensor -> rank), "INVALID_CONTRACTION_INDICES");
     ASSERT(tensor -> rank % 2, "INVALID_CONTRACTION_NUM");
