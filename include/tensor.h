@@ -36,6 +36,7 @@ Tensor* scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b);
 Tensor alloc_scalar_tensor(void* val, DataType data_type);
 Tensor* negate_tensor(Tensor* dest, Tensor tensor);
+Tensor* transpose_tensor(Tensor* tensor);
 
 /* ------------------------------------------------------------------------------------------------------------------------- */
 
@@ -389,6 +390,28 @@ Tensor* negate_tensor(Tensor* dest, Tensor tensor) {
     copy_tensor(dest, temp);
     DEALLOCATE_TENSORS(temp);
     return dest;
+}
+
+Tensor* transpose_tensor(Tensor* tensor) {
+    unsigned int* new_shape = (unsigned int*) calloc(tensor -> rank, sizeof(unsigned int));
+    for (unsigned int i = 0; i < tensor -> rank; ++i) {
+        new_shape[i] = tensor -> shape[tensor -> rank - i - 1];
+    }
+    free(tensor -> shape);
+    tensor -> shape = new_shape;
+
+    return tensor;
+}
+
+Tensor identity_tensor(unsigned int shape_base, unsigned int rank, DataType data_type) {
+    unsigned int shape[] = {shape_base, shape_base};
+    Tensor tensor = alloc_tensor(shape, rank, data_type);
+    for (unsigned int i = 0; i < shape_base; ++i) {
+        if (data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i * shape_base + i] = 1.0f;
+        else if (data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i * shape_base + i] = 1.0;
+        else if (data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i * shape_base + i] = 1.0L;
+    } 
+    return tensor;
 }
 
 #endif //_TENSOR_H_

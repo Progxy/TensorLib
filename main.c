@@ -11,19 +11,9 @@ void test_gelu();
 int main() {
     // test_sigmoid();
     // test_gelu();
-    unsigned int shape_a[] = {2, 2};
-    unsigned int shape_b[] = {2, 2, 3};
-    Tensor a = alloc_tensor(shape_a, ARR_SIZE(shape_a), FLOAT_32);
-    Tensor b = alloc_tensor(shape_b, ARR_SIZE(shape_b), FLOAT_32);
-
-    float val = 1.0f;
-    fill_tensor(&val, a);
-    fill_tensor(&val, b);
-    
-    Tensor c = empty_tensor(a.data_type);
-    DOT_TENSOR(&c, a, b);
-    PRINT_TENSOR(c, "\t");
-
+    Tensor a = identity_tensor(2, 2, FLOAT_32);
+    transpose_tensor(&a);
+    PRINT_TENSOR(a, "\t");
     return 0;
 }
 

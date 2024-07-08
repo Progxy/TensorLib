@@ -142,14 +142,25 @@ void derive_op(GradNode* node, GradNode* child) {
         }
 
         case DOT: {
-            
+            // Math: B^T \otimes A = \frac{\partial{AXB}}{\partial{X}}
+            if (node == child -> parents[0]) {
+                Tensor a = identity_tensor(node -> value -> shape[0], 2, node -> value -> data_type);
+                Tensor b = empty_tensor(node -> derived_value.data_type);
+                copy_tensor(&b, *(child -> parents[0] -> value));
+                transpose_tensor(&b);
+                DOT_TENSOR(&(node -> derived_value), b, a);
+                DEALLOCATE_TENSORS(b, a);
+            } else {
+                Tensor* a = node -> value;
+                Tensor b = identity_tensor(child -> parents[0] -> value -> shape[child -> parents[0] -> value -> rank - 1], 2, child -> parents[0] -> value -> data_type);
+                DOT_TENSOR(&(node -> derived_value), b, *a);
+                DEALLOCATE_TENSORS(b);
+            }
             break;
         }
     }
     return;
 }
-
-// NOTE: add two both modes the cross_product_tensor differentiation
 
 // Derive using forward-mode
 void derive_node(GradNode* node) {
