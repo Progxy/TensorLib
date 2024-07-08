@@ -15,7 +15,7 @@
 #define MULTIPLY_TENSOR(c, a, b) op_tensor(c, a, b, MULTIPLICATION)
 #define SUBTRACT_TENSOR(c, a, b) op_tensor(c, a, b, SUBTRACTION)
 #define DIVIDE_TENSOR(c, a, b) op_tensor(c, a, b, DIVISION)
-#define CROSS_TENSOR(c, a, b) op_tensor(c, a, b, CROSS)
+#define DOT_TENSOR(c, a, b) op_tensor(c, a, b, DOT)
 #define SUM_TENSOR(c, a, b) op_tensor(c, a, b, SUM)
 #define SCALAR_SUB_TENSOR(a, val) scalar_op_tensor(a, val, SUBTRACTION)
 #define SCALAR_MUL_TENSOR(a, val) scalar_op_tensor(a, val, MULTIPLICATION)
@@ -212,7 +212,7 @@ Tensor* copy_tensor(Tensor* dest, Tensor src) {
 }
 
 Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
-    const bool is_single_operand_flag = (op_flag == POW) || (op_flag == EXP) || (op_flag == TANH) || (op_flag == CROSS);
+    const bool is_single_operand_flag = (op_flag == POW) || (op_flag == EXP) || (op_flag == TANH) || (op_flag == DOT);
     ASSERT(!is_valid_enum(op_flag, (unsigned char*) operators_flags, ARR_SIZE(operators_flags)), "INVALID_OPERATOR");
     ASSERT((a.rank != b.rank) && !is_single_operand_flag, "DIM_MISMATCH");
     ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
@@ -221,15 +221,21 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
     }
     
     Tensor temp = alloc_tensor(a.shape, a.rank, a.data_type);
+    unsigned int similar_indices_count = 0;
     void* exponent = NULL;
+
     if (op_flag == POW) {
         exponent = calloc(1, a.data_type);
         mem_copy(exponent, b.data, b.data_type, 1);
-    } else if (op_flag == CROSS) {
-        unsigned int* new_shape = (unsigned int*) calloc(a.rank + b.rank, sizeof(unsigned int));
-        mem_copy(new_shape, a.shape, a.rank, sizeof(unsigned int));
-        mem_copy(new_shape + a.rank, b.shape, b.rank, sizeof(unsigned int));
-        reshape_tensor(&temp, new_shape, a.rank + b.rank, a.data_type);
+    } else if (op_flag == DOT) {
+        for (unsigned int i = 0; i < (a.rank - 1) && i < (b.rank - 1); ++i, ++similar_indices_count) {
+            if (b.shape[i] != a.shape[a.rank - i - 1]) break;
+        }
+        unsigned int new_rank = a.rank + b.rank - (2 * similar_indices_count);
+        unsigned int* new_shape = (unsigned int*) calloc(new_rank, sizeof(unsigned int));
+        mem_copy(new_shape, a.shape, a.rank - similar_indices_count, sizeof(unsigned int));
+        mem_copy(new_shape + (a.rank - similar_indices_count), b.shape + similar_indices_count, b.rank - similar_indices_count, sizeof(unsigned int));
+        reshape_tensor(&temp, new_shape, new_rank, a.data_type);
         free(new_shape);
     }
     
@@ -298,14 +304,19 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
             break;
         }
 
-        case CROSS: {
-            unsigned int b_size = tensor_size(b.shape, b.rank);
-            for (unsigned int i = 0; i < size; ++i) {
-                for (unsigned int j = 0; j < b_size; ++j) {
-                    if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i * b_size + j] = CAST_PTR(a.data, float)[i] * CAST_PTR(b.data, float)[j];
-                    else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * b_size + j] = CAST_PTR(a.data, double)[i] * CAST_PTR(b.data, double)[j];
-                    else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * b_size + j] = CAST_PTR(a.data, long double)[i] * CAST_PTR(b.data, long double)[j];
-                }
+        case DOT: {
+            unsigned int ext_size = tensor_size(a.shape, a.rank - similar_indices_count);
+            unsigned int int_size = tensor_size(b.shape + similar_indices_count, b.rank - similar_indices_count);
+            unsigned int common_size = tensor_size(a.shape + (a.rank - similar_indices_count), similar_indices_count);
+
+            for (unsigned int i = 0; i < ext_size; ++i) {
+                for (unsigned int j = 0; j < int_size; ++j) {
+                    for (unsigned int k = 0; k < common_size; ++k) {
+                        if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i * int_size + j] += CAST_PTR(a.data, float)[i * common_size + k] * CAST_PTR(b.data, float)[k * int_size + j];
+                        else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * int_size + j] += CAST_PTR(a.data, double)[i * common_size + k] * CAST_PTR(b.data, double)[k * int_size + j];
+                        else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * int_size + j] += CAST_PTR(a.data, long double)[i * common_size + k] * CAST_PTR(b.data, long double)[k * int_size + j];
+                    }
+                } 
             }
             break;
         }
@@ -324,6 +335,40 @@ Tensor* scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag) {
     op_tensor(tensor, *tensor, scalar_tensor, op_flag);
     DEALLOCATE_TENSORS(scalar_tensor);
     return tensor;
+}
+
+Tensor* tensor_dot_product(Tensor* c, Tensor a, Tensor b) {
+    Tensor temp = empty_tensor(a.data_type);
+
+    unsigned int similar_indices_count = 0;
+    for (unsigned int i = 0; i < (a.rank - 1) && i < (b.rank - 1); ++i, ++similar_indices_count) {
+        if (b.shape[i] != a.shape[a.rank - i - 1]) break;
+    }
+    unsigned int new_rank = a.rank + b.rank - (2 * similar_indices_count);
+    unsigned int* new_shape = (unsigned int*) calloc(new_rank, sizeof(unsigned int));
+    mem_copy(new_shape, a.shape, a.rank - similar_indices_count, sizeof(unsigned int));
+    mem_copy(new_shape + (a.rank - similar_indices_count), b.shape + similar_indices_count, b.rank - similar_indices_count, sizeof(unsigned int));
+    reshape_tensor(&temp, new_shape, new_rank, a.data_type);
+    free(new_shape);
+
+    unsigned int ext_size = tensor_size(a.shape, a.rank - similar_indices_count);
+    unsigned int int_size = tensor_size(b.shape + similar_indices_count, b.rank - similar_indices_count);
+    unsigned int common_size = tensor_size(a.shape + (a.rank - similar_indices_count), similar_indices_count);
+
+    for (unsigned int i = 0; i < ext_size; ++i) {
+        for (unsigned int j = 0; j < int_size; ++j) {
+            for (unsigned int k = 0; k < common_size; ++k) {
+                if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i * int_size + j] += CAST_PTR(a.data, float)[i * common_size + k] * CAST_PTR(b.data, float)[k * int_size + j];
+                else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * int_size + j] += CAST_PTR(a.data, double)[i * common_size + k] * CAST_PTR(b.data, double)[k * int_size + j];
+                else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * int_size + j] += CAST_PTR(a.data, long double)[i * common_size + k] * CAST_PTR(b.data, long double)[k * int_size + j];
+            }
+        } 
+    }
+
+    copy_tensor(c, temp);
+    DEALLOCATE_TENSORS(temp);
+
+    return c;
 }
 
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b) {

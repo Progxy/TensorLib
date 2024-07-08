@@ -140,6 +140,11 @@ void derive_op(GradNode* node, GradNode* child) {
             free(val);
             break;
         }
+
+        case DOT: {
+            
+            break;
+        }
     }
     return;
 }

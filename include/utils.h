@@ -121,7 +121,7 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             break;
         }
 
-        case CROSS:
+        case DOT:
         case MULTIPLICATION: {
             if (data_type == FLOAT_32) *CAST_PTR(res, float) = CAST_AND_OP(a, b, float, *);
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = CAST_AND_OP(a, b, double, *);

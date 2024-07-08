@@ -9,8 +9,21 @@ void test_gelu();
 #define DERIVED_VALUE(node, type) CAST_PTR(DERIVED_TENSOR(node).data, type)
 
 int main() {
-    test_sigmoid();
-    test_gelu();
+    // test_sigmoid();
+    // test_gelu();
+    unsigned int shape_a[] = {2, 2};
+    unsigned int shape_b[] = {2, 2, 3};
+    Tensor a = alloc_tensor(shape_a, ARR_SIZE(shape_a), FLOAT_32);
+    Tensor b = alloc_tensor(shape_b, ARR_SIZE(shape_b), FLOAT_32);
+
+    float val = 1.0f;
+    fill_tensor(&val, a);
+    fill_tensor(&val, b);
+    
+    Tensor c = empty_tensor(a.data_type);
+    DOT_TENSOR(&c, a, b);
+    PRINT_TENSOR(c, "\t");
+
     return 0;
 }
 
