@@ -14,6 +14,7 @@
 #define TENSOR_GRAPH_MUL(c, a, b) graph_op(c, a, b, MULTIPLICATION)
 #define TENSOR_GRAPH_SUB(c, a, b) graph_op(c, a, b, SUBTRACTION)
 #define TENSOR_GRAPH_DIV(c, a, b) graph_op(c, a, b, DIVISION)
+#define TENSOR_GRAPH_DOT(c, a, b) graph_op(c, a, b, DOT)
 #define TENSOR_GRAPH_SUM(c, a, b) graph_op(c, a, b, SUM)
 
 void alloc_grad_graph_node(DataType data_type, Tensor* value) {

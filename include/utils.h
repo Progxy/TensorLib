@@ -21,16 +21,16 @@
 #define IS_GREATER(a, b, data_type) comparison_op(a, b, data_type, GREATER)
 #define IS_EQUAL(a, b, data_type) comparison_op(a, b, data_type, EQUAL)
 #define IS_LESS(a, b, data_type) comparison_op(a, b, data_type, LESS)
-#define ASSERT(condition, err_msg) assert(condition, __LINE__, __FILE__, err_msg);
+#define ASSERT(condition, err_msg) assert(condition, #condition, __LINE__, __FILE__, err_msg);
 #define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define CAST_PTR(ptr, type) ((type*) (ptr))
 #define NOT_USED(var) (void) var
 #define MAX(a, b) (a >= b ? a : b)
 #define MIN(a, b) (a <= b ? a : b)
 
-void assert(bool condition, unsigned int line, char* file, char* err_msg) {
+void assert(bool condition, char* condition_str, unsigned int line, char* file, char* err_msg) {
     if (condition) {
-        printf("ERROR: Assert failed in file: %s:%u, with error: %s.\n", file, line, err_msg);
+        printf("ERROR: Assert condition: '%s' failed in file: %s:%u, with error: %s.\n", condition_str, file, line, err_msg);
         abort();
     }
     return;

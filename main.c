@@ -9,11 +9,23 @@ void test_gelu();
 #define DERIVED_VALUE(node, type) CAST_PTR(DERIVED_TENSOR(node).data, type)
 
 int main() {
+    unsigned int shape[] = {2, 2};
+    unsigned int shape_b[] = {2, 3};
+    float val = 1.0f;
+
+    Tensor x, x1;
+    alloc_tensor_grad_graph_filled(x, shape, ARR_SIZE(shape), FLOAT_32, &val);
+    alloc_tensor_grad_graph_filled(x1, shape_b, ARR_SIZE(shape), FLOAT_32, &val);
+    
+    Tensor c = empty_tensor(x.data_type);
+    TENSOR_GRAPH_DOT(&c, x, x1);
+
+    derive_r_node(c.grad_node, TRUE);
+    //derive_node(x.grad_node);
+    PRINT_TENSOR(DERIVED_TENSOR(x.grad_node), "\t");
+
     // test_sigmoid();
     // test_gelu();
-    Tensor a = identity_tensor(2, 2, FLOAT_32);
-    transpose_tensor(&a);
-    PRINT_TENSOR(a, "\t");
     return 0;
 }
 
@@ -61,7 +73,7 @@ void test_sigmoid() {
 }
 
 void test_gelu() {
-    unsigned int shape[] = {1};
+    unsigned int shape[] = {2, 2};
     float val = 1.0f;
 
     Tensor x, x1, x2, x3, x4;
@@ -78,9 +90,12 @@ void test_gelu() {
     TENSOR_GRAPH_MUL(&d, x2, *TENSOR_GRAPH_SUM(&c, x, *TENSOR_GRAPH_MUL(&b, x1, *TENSOR_GRAPH_POW(&a, x, (val = 3.0f, &val), x.data_type))));
     TENSOR_GRAPH_MUL(&h, *TENSOR_GRAPH_MUL(&g, x, x4), *TENSOR_GRAPH_SUM(&f, x3, *TENSOR_GRAPH_TANH(&e, d, x.data_type)));
     
+    PRINT_TENSOR(h, "\t");
     derive_r_node(h.grad_node, TRUE);
-    printf("expr_val: %f, expr_derivative_val: %f\n", CAST_PTR(h.data, float)[0], DERIVED_VALUE(x.grad_node, float)[0]);
+    PRINT_TENSOR(DERIVED_TENSOR(x.grad_node), "\t");
+
     DEALLOCATE_GRAD_SINGLE_GRAPHS(x1.grad_node, x2.grad_node, x3.grad_node, x4.grad_node);
     DEALLOCATE_GRAD_GRAPHS(x.grad_node);
+
     return;
 }
