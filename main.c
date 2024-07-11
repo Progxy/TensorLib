@@ -58,16 +58,6 @@ void test_sigmoid() {
     for (unsigned int i = 0; i < size; ++i) {
         sigmoid_func(CAST_PTR(sigmoid_tensor.data, float) + i, CAST_PTR(sigmoid_tensor.data, float) + i, sigmoid_tensor.data_type);
     }
-    
-    printf("Result: \n");
-    PRINT_TENSOR(sigmoid_tensor, "\t");
-    Tensor temp = empty_tensor(sigmoid_tensor.data_type);
-    RESHAPE_TENSOR(&temp, sigmoid_tensor);
-    fill_tensor(&val, temp);
-    MULTIPLY_TENSOR(&sigmoid_tensor, sigmoid_tensor, *SUBTRACT_TENSOR(&temp, temp, sigmoid_tensor));
-    printf("Diff Result: \n");
-    PRINT_TENSOR(sigmoid_tensor, "\t");
-    DEALLOCATE_TENSORS(sigmoid_tensor, temp);
 
     return;
 }
