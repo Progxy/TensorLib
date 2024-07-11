@@ -29,10 +29,12 @@ void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     return;  
 }
 
-void* deallocate_grad_graph(bool single_removal_flag, GradNode* node) {
-    if (node -> children == NULL) return NULL;
+void* deallocate_grad_graph(bool single_removal_flag, GradNode* node, void*** deallocated_ptrs, unsigned int* deallocated_ptrs_count) {
+    for (unsigned int i = 0; i < *deallocated_ptrs_count; ++i) {
+        if ((*deallocated_ptrs)[i] == node) return NULL;
+    }
     for (unsigned int i = 0; (i < node -> children_count) && !single_removal_flag; ++i) {
-        if (node -> children[i] != NULL) node -> children[i] = deallocate_grad_graph(single_removal_flag, node -> children[i]);
+        if (node -> children[i] != NULL) node -> children[i] = deallocate_grad_graph(single_removal_flag, node -> children[i], deallocated_ptrs, deallocated_ptrs_count);
     }
     DEALLOCATE_TENSORS(node -> derived_value, *(node -> value));
     free(node -> children);
@@ -41,6 +43,8 @@ void* deallocate_grad_graph(bool single_removal_flag, GradNode* node) {
     node -> parents = NULL;
     if (node -> exp != NULL) free(node -> exp);
     node -> exp = NULL;
+    *deallocated_ptrs = (void**) realloc(*deallocated_ptrs, sizeof(void*) * ((*deallocated_ptrs_count) + 1));
+    (*deallocated_ptrs)[(*deallocated_ptrs_count)++] = node;
     free(node);
     node = NULL;
     return node;
@@ -50,17 +54,20 @@ void deallocate_grad_graphs(int len, ...) {
     va_list args;
     va_start(args, len);
     bool single_removal_flag = va_arg(args, int);
+    void** deallocated_ptrs = (void**) calloc(1, sizeof(void*));
+    unsigned int deallocated_ptrs_count = 0;
     for (int i = 0; i < len; ++i) {
         GradNode* node = va_arg(args, GradNode*);
-        deallocate_grad_graph(single_removal_flag, node);
+        deallocate_grad_graph(single_removal_flag, node, &deallocated_ptrs, &deallocated_ptrs_count);
     }
+    free(deallocated_ptrs);
     va_end(args);
     return;
 }
 
 void add_child(GradNode* child, GradNode* parent) {
     parent -> children = (GradNode**) realloc(parent -> children, sizeof(GradNode*) * (parent -> children_count + 1));
-    parent -> children[(parent -> children_count)++] = child;     
+    parent -> children[(parent -> children_count)++] = child;
     child -> parents = (GradNode**) realloc(child -> parents, sizeof(GradNode*) * (child -> parents_count + 1));
     child -> parents[(child -> parents_count)++] = parent; 
     return;
@@ -84,24 +91,17 @@ Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
 void derive_op(GradNode* node, GradNode* child) {
     switch (child -> operation) {
         case SUM: {
-            void* temp = calloc(1, node -> derived_value.data_type);
-            ASSIGN(temp, 1.0L, node -> derived_value.data_type);
-            reshape_tensor(&(node -> derived_value), node -> value -> shape, node -> value -> rank, node -> value -> data_type);
-            fill_tensor(temp, node -> derived_value);
-            free(temp);
+            copy_tensor(&(node -> derived_value), child -> derived_value);
             break;       
         }
 
         case SUBTRACTION: {
-            void* temp = calloc(1, node -> derived_value.data_type);
-            ASSIGN(temp, -1.0L, node -> derived_value.data_type);
-            reshape_tensor(&(node -> derived_value), node -> value -> shape, node -> value -> rank, node -> value -> data_type);
-            fill_tensor(temp, node -> derived_value);
-            free(temp);
+            if (node == child -> parents[0]) copy_tensor(&(node -> derived_value), child -> derived_value);
+            else negate_tensor(&(node -> derived_value), child -> derived_value);
             break;        
         }
 
-        case MULTIPLICATION:{
+        case MULTIPLICATION: {
             DIVIDE_TENSOR(&(node -> derived_value), *(child -> value), *(node -> value));
             break;       
         }
@@ -120,11 +120,13 @@ void derive_op(GradNode* node, GradNode* child) {
             SCALAR_MUL_TENSOR(&(node -> derived_value), child -> exp);
             free(tmp);
             free(temp);
+            DOT_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
             break;
         }
 
         case EXP: {
             copy_tensor(&(node -> derived_value), *(child -> value));
+            DOT_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
             break;
         }
 
@@ -139,23 +141,21 @@ void derive_op(GradNode* node, GradNode* child) {
             SUBTRACT_TENSOR(&(node -> derived_value), temp, node -> derived_value);
             DEALLOCATE_TENSORS(temp);
             free(val);
+            DOT_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
             break;
         }
 
         case DOT: {
-            // Math: B^T \otimes A = \frac{\partial{AXB}}{\partial{X}}
             if (node == child -> parents[0]) {
-                Tensor a = identity_tensor(node -> value -> shape[0], 2, node -> value -> data_type);
-                Tensor b = empty_tensor(node -> derived_value.data_type);
-                copy_tensor(&b, *(child -> parents[0] -> value));
-                transpose_tensor(&b);
-                DOT_TENSOR(&(node -> derived_value), b, a);
-                DEALLOCATE_TENSORS(b, a);
+                Tensor b_t = empty_tensor(node -> derived_value.data_type);
+                transpose_tensor(copy_tensor(&b_t, *(child -> parents[1] -> value)));
+                DOT_TENSOR(&(node -> derived_value), child -> derived_value, b_t);
+                DEALLOCATE_TENSORS(b_t);
             } else {
-                Tensor* a = node -> value;
-                Tensor b = identity_tensor(child -> parents[0] -> value -> shape[child -> parents[0] -> value -> rank - 1], 2, child -> parents[0] -> value -> data_type);
-                DOT_TENSOR(&(node -> derived_value), b, *a);
-                DEALLOCATE_TENSORS(b);
+                Tensor a_t = empty_tensor(node -> derived_value.data_type);
+                transpose_tensor(copy_tensor(&a_t, *(child -> parents[0] -> value)));
+                DOT_TENSOR(&(node -> derived_value), a_t, child -> derived_value);
+                DEALLOCATE_TENSORS(a_t);
             }
             break;
         }
@@ -178,7 +178,7 @@ void derive_node(GradNode* node) {
     for (unsigned int i = 0; i < node -> children_count; ++i) {
         derive_node(node -> children[i]); 
         derive_op(node, node -> children[i]);
-        SUM_TENSOR(&diff, diff, *MULTIPLY_TENSOR(&(node -> derived_value), node -> derived_value, node -> children[i] -> derived_value));
+        SUM_TENSOR(&diff, diff, node -> derived_value);
     }
 
     copy_tensor(&(node -> derived_value), diff);
@@ -201,7 +201,6 @@ void derive_r_node(GradNode* node, bool is_sink) {
         Tensor temp = empty_tensor(node -> derived_value.data_type);
         copy_tensor(&temp, node -> parents[i] -> derived_value);
         derive_op(node -> parents[i], node);
-        MULTIPLY_TENSOR(&(node -> parents[i] -> derived_value), node -> parents[i] -> derived_value, node -> derived_value);
         SUM_TENSOR(&(node -> parents[i] -> derived_value), node -> parents[i] -> derived_value, temp);
         DEALLOCATE_TENSORS(temp);
         derive_r_node(node -> parents[i], FALSE);

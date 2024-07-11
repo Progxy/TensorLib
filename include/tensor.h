@@ -8,6 +8,7 @@
 #define RESHAPE_TENSOR(dest, tensor) reshape_tensor(dest, (tensor).shape, (tensor).rank, (tensor).data_type)
 #define DEALLOCATE_TEMP_TENSORS() alloc_temp_tensor(NULL, 0, FLOAT_32, TRUE)
 #define PRINT_TENSOR(tensor, prefix) print_tensor(tensor, prefix, #tensor)
+#define PRINT_SHAPE(tensor) print_shape((tensor).shape, (tensor).rank)
 #define TENSOR_SIZE(tensor) tensor_size((tensor).shape, (tensor).rank)
 #define POW_TENSOR(c, a, exp, data_type) op_tensor(c, a, alloc_scalar_tensor(exp, data_type), POW)
 #define TANH_TENSOR(c, a, data_type) op_tensor(c, a, empty_tensor(data_type), TANH)
@@ -81,6 +82,13 @@ static bool is_valid_shape(unsigned int* shape, unsigned int rank) {
         if (!shape[i]) return FALSE;
     }
     return TRUE;
+}
+
+static void matricize_tensor(Tensor tensor, unsigned int* rows, unsigned int* cols) {
+    *rows = 1, *cols = 1;
+    for (unsigned int i = 0; i < tensor.rank - 1; ++i) *rows *= tensor.shape[i]; 
+    *cols = tensor.shape[tensor.rank - 1];
+    return;
 }
 
 unsigned int tensor_size(unsigned int* shape, unsigned int rank) {
@@ -393,12 +401,30 @@ Tensor* negate_tensor(Tensor* dest, Tensor tensor) {
 }
 
 Tensor* transpose_tensor(Tensor* tensor) {
+    unsigned int rows = 0, cols = 0;
+    matricize_tensor(*tensor, &rows, &cols);
+
     unsigned int* new_shape = (unsigned int*) calloc(tensor -> rank, sizeof(unsigned int));
     for (unsigned int i = 0; i < tensor -> rank; ++i) {
         new_shape[i] = tensor -> shape[tensor -> rank - i - 1];
     }
     free(tensor -> shape);
     tensor -> shape = new_shape;
+
+    if (tensor -> rank == 1) return tensor;
+
+    Tensor temp = alloc_tensor(new_shape, tensor -> rank, tensor -> data_type);
+
+    for (unsigned int i = 0; i < rows; ++i) {
+        for (unsigned int j = 0; j < cols; ++j) {
+            if (tensor -> data_type == FLOAT_32) CAST_PTR(temp.data, float)[j * rows + i] = CAST_PTR(tensor -> data, float)[i * cols + j];
+            else if (tensor -> data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * cols + j] = CAST_PTR(tensor -> data, double)[j * rows + i];
+            else if (tensor -> data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * cols + j] = CAST_PTR(tensor -> data, long double)[j * rows + i];
+        }
+    }
+
+    copy_tensor(tensor, temp);
+    DEALLOCATE_TENSORS(temp);
 
     return tensor;
 }

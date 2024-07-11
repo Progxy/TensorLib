@@ -24,8 +24,8 @@ int main() {
     //derive_node(x.grad_node);
     PRINT_TENSOR(DERIVED_TENSOR(x.grad_node), "\t");
 
-    // test_sigmoid();
-    // test_gelu();
+    test_sigmoid();
+    test_gelu();
     return 0;
 }
 
