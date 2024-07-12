@@ -131,17 +131,12 @@ void derive_op(GradNode* node, GradNode* child) {
         }
 
         case TANH: {
-            Tensor temp = alloc_tensor(node -> value -> shape, node -> value -> rank, node -> value -> data_type);
             void* val = calloc(1, node -> derived_value.data_type);
-            ASSIGN(val, 2.0L, node -> derived_value.data_type);
             TANH_TENSOR(&(node -> derived_value), *(node -> value), node -> derived_value.data_type);
-            POW_TENSOR(&(node -> derived_value), node -> derived_value, val, node -> derived_value.data_type);
-            ASSIGN(val, 1.0L, node -> derived_value.data_type);
-            fill_tensor(val, temp);
-            SUBTRACT_TENSOR(&(node -> derived_value), temp, node -> derived_value);
-            DEALLOCATE_TENSORS(temp);
+            POW_TENSOR(&(node -> derived_value), node -> derived_value, ASSIGN(val, 2.0L, node -> derived_value.data_type), node -> derived_value.data_type);
+            SCALAR_SUM_TENSOR(negate_tensor(&(node -> derived_value), node -> derived_value), ASSIGN(val, 1.0L, node -> derived_value.data_type));
             free(val);
-            DOT_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
+            MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
             break;
         }
 
