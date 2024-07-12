@@ -83,7 +83,7 @@ void test_gelu() {
     PRINT_TENSOR(h, "\t");
     derive_r_node(h.grad_node, TRUE);
     PRINT_TENSOR(DERIVED_TENSOR(x.grad_node), "\t");
-
+    
     DEALLOCATE_GRAD_SINGLE_GRAPHS(x1.grad_node, x2.grad_node, x3.grad_node, x4.grad_node);
     DEALLOCATE_GRAD_GRAPHS(x.grad_node);
 
