@@ -10,37 +10,29 @@ void test_gelu();
 
 int main() {
     unsigned int shape[] = {2, 2};
-    unsigned int shape_b[] = {2, 3};
-    unsigned int shape_c[] = {1, 9};
+    unsigned int shape_b[] = {2, 2};
+
+    float data_a[] = {1, 2, 3, 4};
+    float data_b[] = {5, 6, 7, 8};
     float val = 1.0f;
 
     Tensor x, x1;
     alloc_tensor_grad_graph_filled(x, shape, ARR_SIZE(shape), FLOAT_32, &val);
     alloc_tensor_grad_graph_filled(x1, shape_b, ARR_SIZE(shape), FLOAT_32, &val);
+
+    set_tensor(data_a, x);
+    set_tensor(data_b, x1);
     
     Tensor c = empty_tensor(x.data_type);
-    TENSOR_GRAPH_DOT(&c, x, x1);
+    TENSOR_GRAPH_SUM(&c, x, x1);
 
     derive_r_node(c.grad_node, TRUE);
     //derive_node(x.grad_node);
     PRINT_TENSOR(DERIVED_TENSOR(x.grad_node), "\t");
+    PRINT_TENSOR(DERIVED_TENSOR(x1.grad_node), "\t");
+    PRINT_TENSOR(DERIVED_TENSOR(c.grad_node), "\t");
 
     DEALLOCATE_GRAD_GRAPHS(x.grad_node);
-
-    Tensor x2;
-    alloc_tensor_grad_graph_filled(x2, shape_c, ARR_SIZE(shape_c), FLOAT_32, &val);
-
-    Tensor d = empty_tensor(x2.data_type);
-    TENSOR_GRAPH_TANH(&d, x2, x2.data_type);
-
-    derive_r_node(d.grad_node, TRUE);
-    //derive_node(x.grad_node);
-    PRINT_TENSOR(DERIVED_TENSOR(x2.grad_node), "\t");
-
-    DEALLOCATE_GRAD_GRAPHS(x2.grad_node);
-
-    test_sigmoid();
-    test_gelu();
     return 0;
 }
 

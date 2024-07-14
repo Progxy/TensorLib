@@ -3,6 +3,8 @@
 
 #include "./tensor.h"
 
+#define NODE_TENSOR(node) CAST_PTR(node, GradNode) -> value
+#define NODE_DERIVED_TENSOR(node) CAST_PTR(node, GradNode) -> derived_value
 #define IS_DENOMINATOR(parent, child) parent == child -> parents[1]
 #define DEALLOCATE_GRAD_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) FALSE, __VA_ARGS__)
 #define DEALLOCATE_GRAD_SINGLE_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) TRUE, __VA_ARGS__)
@@ -10,7 +12,9 @@
 #define alloc_tensor_grad_graph(tensor, shape, rank, data_type) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), &tensor))
 #define TENSOR_GRAPH_POW(c, a, val, data_types) graph_op(c, a, (Tensor) {.data = val, .data_type = data_types}, POW)
 #define TENSOR_GRAPH_TANH(c, a, data_types) graph_op(c, a, (Tensor) {.data_type = data_types}, TANH)
+#define TENSOR_GRAPH_SQRT(c, a, data_types) graph_op(c, a, (Tensor) {.data_type = data_types}, SQRT)
 #define TENSOR_GRAPH_EXP(c, a, data_types) graph_op(c, a, (Tensor) {.data_type = data_types}, EXP)
+#define TENSOR_GRAPH_LOG(c, a, data_types) graph_op(c, a, (Tensor) {.data_type = data_types}, LOG)
 #define TENSOR_GRAPH_MUL(c, a, b) graph_op(c, a, b, MULTIPLICATION)
 #define TENSOR_GRAPH_SUB(c, a, b) graph_op(c, a, b, SUBTRACTION)
 #define TENSOR_GRAPH_DIV(c, a, b) graph_op(c, a, b, DIVISION)
@@ -20,7 +24,8 @@
 void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     GradNode* node = (GradNode*) calloc(1, sizeof(GradNode));
     node -> children = NULL;
-    node -> value = value;
+    node -> value = (Tensor*) calloc(1, sizeof(Tensor));
+    copy_tensor(node -> value, *value);
     node -> exp = NULL;
     node -> children_count = 0;
     node -> derived_value = empty_tensor(data_type);
@@ -37,6 +42,7 @@ void* deallocate_grad_graph(bool single_removal_flag, GradNode* node, void*** de
         if (node -> children[i] != NULL) node -> children[i] = deallocate_grad_graph(single_removal_flag, node -> children[i], deallocated_ptrs, deallocated_ptrs_count);
     }
     DEALLOCATE_TENSORS(node -> derived_value, *(node -> value));
+    free(node -> value);
     free(node -> children);
     node -> children = NULL;
     free(node -> parents);
@@ -78,10 +84,17 @@ Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
     alloc_grad_graph_node(a.data_type, c);
     CAST_PTR(c -> grad_node, GradNode) -> operation = operation; 
     add_child(c -> grad_node, a.grad_node);
-    if (operation == EXP || operation == TANH) return c;
+    if (operation == EXP || operation == TANH || operation == LOG) return c;
     else if (operation == POW) {
         CAST_PTR(c -> grad_node, GradNode) -> exp = calloc(1, a.data_type);
         mem_copy(CAST_PTR(c -> grad_node, GradNode) -> exp, b.data, b.data_type, 1);
+        return c;
+    } else if (operation == SQRT) {
+        CAST_PTR(c -> grad_node, GradNode) -> exp = calloc(1, a.data_type);
+        void* val = (void*) calloc(1, a.data_type);
+        ASSIGN(val, 0.5L, a.data_type);
+        mem_copy(CAST_PTR(c -> grad_node, GradNode) -> exp, val, a.data_type, 1);
+        free(val);
         return c;
     }
     add_child(c -> grad_node, b.grad_node);
@@ -97,30 +110,40 @@ void derive_op(GradNode* node, GradNode* child) {
 
         case SUBTRACTION: {
             if (node == child -> parents[0]) copy_tensor(&(node -> derived_value), child -> derived_value);
-            else negate_tensor(&(node -> derived_value), child -> derived_value);
+            else CONJUGATE_TENSOR(&(node -> derived_value), child -> derived_value);
             break;        
         }
 
         case MULTIPLICATION: {
-            DIVIDE_TENSOR(&(node -> derived_value), *(child -> value), *(node -> value));
+            Tensor* other_parent = (node == child -> parents[0]) ? child -> parents[1] -> value : child -> parents[0] -> value;
+            MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, *other_parent);
             break;       
         }
         
         case DIVISION: {
-            DIVIDE_TENSOR(&(node -> derived_value), *(child -> value), *(node -> value));
-            if (IS_DENOMINATOR(node, child)) negate_tensor(&(node -> derived_value), node -> derived_value);
+            Tensor* other_parent = (node == child -> parents[0]) ? child -> parents[1] -> value : child -> parents[0] -> value;
+            if (IS_DENOMINATOR(node, child)) {
+                void* val = (void*) calloc(1, node -> derived_value.data_type);
+                ASSIGN(val, 2.0L, node -> derived_value.data_type);
+                MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, *DIVIDE_TENSOR(&(node -> derived_value), *other_parent, *POW_TENSOR(&(node -> derived_value), *(node -> value), val)));
+                CONJUGATE_TENSOR(&(node -> derived_value), node -> derived_value);
+                free(val);
+            } else {    
+                DIVIDE_TENSOR(&(node -> derived_value), child -> derived_value, *other_parent);
+            }
             break;
         }
 
+        case SQRT:
         case POW: {
             void* temp = calloc(1, node -> derived_value.data_type);
             void* tmp = calloc(1, node -> derived_value.data_type);
             copy_tensor(&(node -> derived_value), *(node -> value));
-            POW_TENSOR(&(node -> derived_value), node -> derived_value, SCALAR_SUB(temp, child -> exp, ASSIGN(tmp, 1.0L, node -> derived_value.data_type), node -> derived_value.data_type), node -> derived_value.data_type);
+            POW_TENSOR(&(node -> derived_value), node -> derived_value, SCALAR_SUB(temp, child -> exp, ASSIGN(tmp, 1.0L, node -> derived_value.data_type), node -> derived_value.data_type));
             SCALAR_MUL_TENSOR(&(node -> derived_value), child -> exp);
             free(tmp);
             free(temp);
-            DOT_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
+            MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
             break;
         }
 
@@ -132,9 +155,9 @@ void derive_op(GradNode* node, GradNode* child) {
 
         case TANH: {
             void* val = calloc(1, node -> derived_value.data_type);
-            TANH_TENSOR(&(node -> derived_value), *(node -> value), node -> derived_value.data_type);
-            POW_TENSOR(&(node -> derived_value), node -> derived_value, ASSIGN(val, 2.0L, node -> derived_value.data_type), node -> derived_value.data_type);
-            SCALAR_SUM_TENSOR(negate_tensor(&(node -> derived_value), node -> derived_value), ASSIGN(val, 1.0L, node -> derived_value.data_type));
+            TANH_TENSOR(&(node -> derived_value), *(node -> value));
+            POW_TENSOR(&(node -> derived_value), node -> derived_value, ASSIGN(val, 2.0L, node -> derived_value.data_type));
+            SCALAR_SUM_TENSOR(CONJUGATE_TENSOR(&(node -> derived_value), node -> derived_value), ASSIGN(val, 1.0L, node -> derived_value.data_type));
             free(val);
             MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
             break;
@@ -154,13 +177,28 @@ void derive_op(GradNode* node, GradNode* child) {
             }
             break;
         }
+
+        case LOG: {
+            Tensor temp = alloc_tensor(node -> value -> shape, node -> value -> rank, node -> value -> data_type);
+            void* val = (void*) calloc(1, node -> derived_value.data_type);
+            fill_tensor(ASSIGN(val, 1.0L, node -> derived_value.data_type), temp);
+            free(val);
+            DIVIDE_TENSOR(&(node -> derived_value), temp, *(node -> value));
+            MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
+            break;
+        }
+
+        case CONJUGATE: {
+            ASSERT(TRUE, "Impossible to differentiate the CONJUGATE operation!");
+            break;
+        }
     }
     return;
 }
 
 // Derive using forward-mode
 void derive_node(GradNode* node) {
-    // Seed the leaf with 1.0
+    // Seed the sink with 1.0
     if (node -> children_count == 0) {
         copy_tensor(&(node -> derived_value), *(node -> value));
         void* value = calloc(1, node -> derived_value.data_type);
@@ -204,12 +242,21 @@ void derive_r_node(GradNode* node, bool is_sink) {
     return;
 }
 
+GradNode* get_sink(GradNode* node) {
+    if (node -> children_count) return get_sink(node -> children[0]);
+    else return node;
+}
+
 void forward_pass(GradNode* node) {
-    OperatorFlag op_flag = node -> children[0] -> operation;
-    if (op_flag == TANH || op_flag == EXP) op_tensor(node -> children[0] -> value, *(node -> value), (Tensor) {0}, op_flag);
-    else if (op_flag == POW) op_tensor(node -> children[0] -> value, *(node -> value), (Tensor) {.data = node -> children[0] -> exp}, op_flag);
-    else op_tensor(node -> children[0] -> value, *(node -> children[0] -> parents[0] -> value), *(node -> children[0] -> parents[1] -> value), op_flag);
-    if (node -> children[0] -> children_count) forward_pass(node -> children[0]);
+    GradNode* child = node -> children[0];
+    
+    OperatorFlag op_flag = child -> operation;
+    if (op_flag == TANH || op_flag == EXP || op_flag == LOG) op_tensor(child -> value, *(node -> value), (Tensor) {.data_type = node -> derived_value.data_type}, op_flag);
+    else if (op_flag == POW || op_flag == SQRT) op_tensor(child -> value, *(node -> value), (Tensor) {.data = child -> exp, .data_type = node -> derived_value.data_type}, op_flag);
+    else op_tensor(child -> value, *(child -> parents[0] -> value), *(child -> parents[1] -> value), op_flag);
+    
+    if (child -> children_count) forward_pass(child);
+    
     return;
 }
 

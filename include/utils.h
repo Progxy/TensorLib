@@ -11,11 +11,16 @@
 #define CAST_AND_OP(a, b, type, op) *CAST_PTR(a, type) op *CAST_PTR(b, type)
 #define CAST_PTR_AT_INDEX(a, type, index) &(CAST_PTR(a, type)[index])
 #define ASSIGN(val, new_val, data_type) assign_data_type(val, (long double) new_val, data_type)
+#define SCALAR_CONJUGATE(res, a, data_type) scalar_op(res, a, NULL, data_type, CONJUGATE)
 #define SCALAR_MUL(res, a, b, data_type) scalar_op(res, a, b, data_type, MULTIPLICATION)
 #define SCALAR_SUB(res, a, b, data_type) scalar_op(res, a, b, data_type, SUBTRACTION)
 #define SCALAR_DIV(res, a, b, data_type) scalar_op(res, a, b, data_type, DIVISION)
+#define SCALAR_SQRT(res, a, data_type) scalar_op(res, a, NULL, data_type, SQRT)
+#define SCALAR_TANH(res, a, data_type) scalar_op(res, a, NULL, data_type, TANH)
 #define SCALAR_SUM(res, a, b, data_type) scalar_op(res, a, b, data_type, SUM)
 #define SCALAR_POW(res, a, b, data_type) scalar_op(res, a, b, data_type, POW)
+#define SCALAR_EXP(res, a, data_type) scalar_op(res, a, NULL, data_type, EXP)
+#define SCALAR_LOG(res, a, data_type) scalar_op(res, a, NULL, data_type, LOG)
 #define IS_GREATER_OR_EQUAL(a, b, data_type) comparison_op(a, b, data_type, GREATER_OR_EQUAL)
 #define IS_LESS_OR_EQUAL(a, b, data_type) comparison_op(a, b, data_type, LESS_OR_EQUAL)
 #define IS_GREATER(a, b, data_type) comparison_op(a, b, data_type, GREATER)
@@ -154,6 +159,27 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             if (data_type == FLOAT_32) *CAST_PTR(res, float) = tanhf(*CAST_PTR(a, float));
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = tanh(*CAST_PTR(a, double));
             else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = tanhl(*CAST_PTR(a, long double));
+            break;
+        }
+
+        case SQRT: {
+            if (data_type == FLOAT_32) *CAST_PTR(res, float) = sqrtf(*CAST_PTR(a, float));
+            else if (data_type == FLOAT_64) *CAST_PTR(res, double) = sqrt(*CAST_PTR(a, double));
+            else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = sqrtl(*CAST_PTR(a, long double));
+            break;
+        }
+
+        case LOG: {
+            if (data_type == FLOAT_32) *CAST_PTR(res, float) = logf(*CAST_PTR(a, float));
+            else if (data_type == FLOAT_64) *CAST_PTR(res, double) = log(*CAST_PTR(a, double));
+            else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = logl(*CAST_PTR(a, long double));
+            break;
+        }
+
+        case CONJUGATE: {
+            if (data_type == FLOAT_32) *CAST_PTR(res, float) = -(*CAST_PTR(a, float));
+            else if (data_type == FLOAT_64) *CAST_PTR(res, double) = -(*CAST_PTR(a, double));
+            else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = -(*CAST_PTR(a, long double));
             break;
         }
     }
