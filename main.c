@@ -9,21 +9,8 @@ void test_gelu();
 #define DERIVED_VALUE(node, type) CAST_PTR(DERIVED_TENSOR(node).data, type)
 
 int main() {
-    unsigned int shape_a[] = {2, 2};
-    float data_a[] = {1, 2, 3, 4};
-
-    Tensor a = alloc_tensor(shape_a, ARR_SIZE(shape_a), FLOAT_32); 
-    set_tensor(data_a, a);
-    alloc_grad_graph_node(a.data_type, &a);
-
-    Tensor c = empty_tensor(a.data_type);
-    TENSOR_GRAPH_EXP(&c, a);
-
-    derive_r_node(c.grad_node, TRUE);
-    PRINT_TENSOR(DERIVED_TENSOR(a.grad_node), "\t");
-    PRINT_TENSOR(DERIVED_TENSOR(c.grad_node), "\t");
-
-    DEALLOCATE_GRAD_GRAPHS(a.grad_node);
+    test_sigmoid();
+    test_gelu();
     return 0;
 }
 
@@ -56,6 +43,16 @@ void test_sigmoid() {
     for (unsigned int i = 0; i < size; ++i) {
         sigmoid_func(CAST_PTR(sigmoid_tensor.data, float) + i, CAST_PTR(sigmoid_tensor.data, float) + i, sigmoid_tensor.data_type);
     }
+    
+    printf("Result: \n");
+    PRINT_TENSOR(sigmoid_tensor, "\t");
+    Tensor temp = empty_tensor(sigmoid_tensor.data_type);
+    RESHAPE_TENSOR(&temp, sigmoid_tensor);
+    fill_tensor(&val, temp);
+    MULTIPLY_TENSOR(&sigmoid_tensor, sigmoid_tensor, *SUBTRACT_TENSOR(&temp, temp, sigmoid_tensor));
+    printf("Diff Result: \n");
+    PRINT_TENSOR(sigmoid_tensor, "\t");
+    DEALLOCATE_TENSORS(sigmoid_tensor, temp);
 
     return;
 }
