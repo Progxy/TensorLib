@@ -105,8 +105,6 @@ Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
 
 void derive_op(GradNode* node, GradNode* child) {
     switch (child -> operation) {
-        case MAX:
-        case MIN:
         case SUM: {
             copy_tensor(&(node -> derived_value), child -> derived_value);
             break;       
@@ -192,6 +190,22 @@ void derive_op(GradNode* node, GradNode* child) {
             break;
         }
 
+        case MAX:
+        case MIN: {
+            void* val = (void*) calloc(1, node -> derived_value.data_type);
+            fill_tensor(val, node -> derived_value);
+            ASSIGN(val, 1.0L, node -> derived_value.data_type);
+            unsigned int size = TENSOR_SIZE(node -> derived_value);
+            for (unsigned int i = 0; i < size; ++i) {
+                if (!IS_EQUAL(CAST_PTR(child -> value -> data, unsigned char) + (node -> derived_value.data_type * i), CAST_PTR(node -> value -> data, unsigned char) + (i * node -> derived_value.data_type), node -> derived_value.data_type)) continue;
+                if (node -> derived_value.data_type == FLOAT_32) ASSIGN(CAST_PTR(node -> derived_value.data, float) + i, 1.0L, node -> derived_value.data_type);
+                else if (node -> derived_value.data_type == FLOAT_64) ASSIGN(CAST_PTR(node -> derived_value.data, double) + i, 1.0L, node -> derived_value.data_type);
+                else if (node -> derived_value.data_type == FLOAT_128) ASSIGN(CAST_PTR(node -> derived_value.data, long double) + i, 1.0L, node -> derived_value.data_type);
+            }
+            free(val);
+            break;
+        }
+                
         case CONJUGATE: {
             ASSERT(TRUE, "Impossible to differentiate the CONJUGATE operation!");
             break;
