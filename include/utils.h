@@ -47,8 +47,14 @@ void assert(bool condition, char* condition_str, unsigned int line, char* file, 
 
 void mem_copy(void* dest, void* src, unsigned char size, unsigned int n) {
     ASSERT(src == NULL, "NULL_POINTER");
-    for (unsigned int i = 0; i < size * n; ++i) {
-        CAST_PTR(dest, unsigned char)[i] = CAST_PTR(src, unsigned char)[i];
+    for (unsigned int i = 0; i < size * n; ++i) CAST_PTR(dest, unsigned char)[i] = CAST_PTR(src, unsigned char)[i];
+    return;
+}
+
+void mem_set(void* dest, void* src, unsigned char size, unsigned int n) {
+    ASSERT(src == NULL, "NULL POINTER");
+    for (unsigned int j = 0; j < n; ++j) {
+        for (unsigned int i = 0; i < size; ++i) CAST_PTR(dest, unsigned char)[size * j + i] = CAST_PTR(src, unsigned char)[i];
     }
     return;
 }

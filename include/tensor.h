@@ -184,32 +184,19 @@ void print_tensor(Tensor tensor, char* prefix_str, char* tensor_name) {
 
 void fill_tensor(void* val, Tensor tensor) {
     unsigned int size = tensor_size(tensor.shape, tensor.rank);
-    for (unsigned int i = 0; i < size; ++i) {
-        if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = *CAST_PTR(val, float);
-        else if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = *CAST_PTR(val, double);
-        else if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = *CAST_PTR(val, long double);
-    }
+    mem_set(tensor.data, val, tensor.data_type, size);
     return;
 }
 
 void set_tensor(void* new_data, Tensor tensor) {
     unsigned int size = tensor_size(tensor.shape, tensor.rank);
-    for (unsigned int i = 0; i < size; ++i) {
-        if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = CAST_PTR(new_data, float)[i];
-        else if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = CAST_PTR(new_data, double)[i];
-        else if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = CAST_PTR(new_data, long double)[i];
-    }
+    mem_copy(tensor.data, new_data, tensor.data_type, size);
     return;
 }
 
 void randomize_tensor(Tensor tensor) {
     unsigned int size = tensor_size(tensor.shape, tensor.rank);
-    for (unsigned int i = 0; i < size; ++i) {
-        long double value = (long double) rand() / RAND_MAX;
-        if (tensor.data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i] = (float) value;
-        else if (tensor.data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i] = (double) value;
-        else if (tensor.data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i] = value;
-    }
+    for (unsigned int i = 0; i < size; ++i) ASSIGN(CAST_PTR_AT_INDEX(tensor.data, i, tensor.data_type), (long double) rand() / RAND_MAX, tensor.data_type);
     return;
 }
 
@@ -313,9 +300,7 @@ Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsign
         const unsigned int offset_a = calc_shape_offset(tensor -> shape, contraction_index_a, tensor -> rank); 
         const unsigned int offset_b = calc_shape_offset(tensor -> shape, contraction_index_b, tensor -> rank);
         for (unsigned int s = 0; s < tensor -> shape[contraction_index_a]; ++s) {
-            if (temp.data_type == FLOAT_32) CAST_PTR(temp.data, float)[temp_index] += CAST_PTR(tensor -> data, float)[tensor_index + s * offset_a + s * offset_b];
-            else if (temp.data_type == FLOAT_64) CAST_PTR(temp.data, double)[temp_index] += CAST_PTR(tensor -> data, double)[tensor_index + s * offset_a + s * offset_b];
-            else if (temp.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[temp_index] += CAST_PTR(tensor -> data, long double)[tensor_index + s * offset_a + s * offset_b];
+            SCALAR_SUM(CAST_PTR_AT_INDEX(temp.data, temp_index, temp.data_type), CAST_PTR_AT_INDEX(temp.data, temp_index, temp.data_type), CAST_PTR_AT_INDEX(tensor -> data, tensor_index + s * offset_a + s * offset_b, tensor -> data_type), temp.data_type);
         }
 
         unsigned int p = 0;
@@ -379,9 +364,7 @@ Tensor* extract_tensor(Tensor* out, Tensor tensor, unsigned int index, unsigned 
     reshape_tensor(out, new_shape, new_dim, tensor.data_type);
     free(new_shape);
     unsigned int offset = calc_shape_offset(tensor.shape, index_dim, tensor.rank) * index;
-    if (tensor.data_type == FLOAT_32) mem_copy(out -> data, CAST_PTR(tensor.data, float) + offset, tensor.data_type, tensor_size(out -> shape, out -> rank));
-    else if (tensor.data_type == FLOAT_64) mem_copy(out -> data, CAST_PTR(tensor.data, double) + offset, tensor.data_type, tensor_size(out -> shape, out -> rank));
-    else if (tensor.data_type == FLOAT_128) mem_copy(out -> data, CAST_PTR(tensor.data, long double) + offset, tensor.data_type, tensor_size(out -> shape, out -> rank));
+    mem_copy(out -> data, CAST_PTR_AT_INDEX(tensor.data, offset, tensor.data_type), tensor.data_type, tensor_size(out -> shape, out -> rank));
     return out;
 }
 
@@ -398,12 +381,7 @@ Tensor* concat_tensors(Tensor* dest, Tensor src) {
     dest -> shape[0] += size / (offset / dest -> shape[0]);
     dest -> data = realloc(dest -> data, dest -> data_type * (size + offset));
     
-    for (unsigned int i = 0; i < size; ++i) {
-        if (dest -> data_type == FLOAT_32) CAST_PTR(dest -> data, float)[offset + i] = CAST_PTR(src.data, float)[i];
-        else if (dest -> data_type == FLOAT_64) CAST_PTR(dest -> data, double)[offset + i] = CAST_PTR(src.data, double)[i];
-        else if (dest -> data_type == FLOAT_128) CAST_PTR(dest -> data, long double)[offset + i] = CAST_PTR(src.data, long double)[i];
-    }   
-
+    mem_copy(CAST_PTR_AT_INDEX(dest -> data, offset, dest -> data_type), src.data, dest -> data_type, size);
     return dest;
 }
 
@@ -426,12 +404,7 @@ Tensor* cut_tensor(Tensor* dest, Tensor* src) {
     mem_copy(dest -> data, src -> data, dest -> data_type, cut_size);
 
     void* new_ptr = calloc(src_size - cut_size, src -> data_type);
-    for (unsigned int i = 0; i < (src_size - cut_size); ++i) {
-        if (src -> data_type == FLOAT_32) CAST_PTR(new_ptr, float)[i] = CAST_PTR(src -> data, float)[i + cut_size];
-        else if (src -> data_type == FLOAT_64) CAST_PTR(new_ptr, double)[i] = CAST_PTR(src -> data, double)[i + cut_size];
-        else if (src -> data_type == FLOAT_128) CAST_PTR(new_ptr, long double)[i] = CAST_PTR(src -> data, long double)[i + cut_size];
-    }
-    
+    mem_copy(new_ptr, CAST_PTR_AT_INDEX(src -> data, cut_size, src -> data_type), src -> data_type, src_size - cut_size);
     free(src -> data);
     src -> data = new_ptr;
     src -> shape[0] -= cut_size / (src_size / src -> shape[0]);
@@ -444,11 +417,7 @@ void* tensor_norm(Tensor tensor, void* norm, void* res) {
     flatten_tensor(&temp_tensor, tensor);
     void* temp = calloc(1, tensor.data_type);
     unsigned int size = tensor_size(temp_tensor.shape, temp_tensor.rank);
-    for (unsigned int i = 0; i < size; ++i) {
-        if (tensor.data_type == FLOAT_32) *CAST_PTR(temp, float) += CAST_PTR(temp_tensor.data, float)[i]; 
-        else if (tensor.data_type == FLOAT_64) *CAST_PTR(temp, double) += CAST_PTR(temp_tensor.data, double)[i]; 
-        else if (tensor.data_type == FLOAT_128) *CAST_PTR(temp, long double) += CAST_PTR(temp_tensor.data, long double)[i]; 
-    }
+    for (unsigned int i = 0; i < size; ++i) CAST_AND_OP_INDEX(temp, temp_tensor.data, temp, i, temp_tensor.data_type, SUM);
     SCALAR_POW(res, temp, norm, tensor.data_type);
     DEALLOCATE_TENSORS(temp_tensor);
     free(temp);
@@ -460,11 +429,7 @@ Tensor* normal(Tensor* tensor) {
     void* mean = calloc(1, tensor -> data_type);
     ASSIGN(variance, 2.0L / (tensor -> shape[0] + tensor -> shape[1]), tensor -> data_type);
     unsigned int size = tensor_size(tensor -> shape, tensor -> rank);
-    for (unsigned int i = 0; i < size; ++i) {
-        if (tensor -> data_type == FLOAT_32) normal_func(CAST_PTR(tensor -> data, float) + i, CAST_PTR(tensor -> data, float) + i, variance, mean, tensor -> data_type); 
-        else if (tensor -> data_type == FLOAT_64) normal_func(CAST_PTR(tensor -> data, double) + i, CAST_PTR(tensor -> data, double) + i, variance, mean, tensor -> data_type); 
-        else if (tensor -> data_type == FLOAT_128) normal_func(CAST_PTR(tensor -> data, long double) + i, CAST_PTR(tensor -> data, long double) + i, variance, mean, tensor -> data_type); 
-    }
+    for (unsigned int i = 0; i < size; ++i) normal_func(CAST_PTR_AT_INDEX(tensor -> data, i, tensor -> data_type), CAST_PTR_AT_INDEX(tensor -> data, i, tensor -> data_type), variance, mean, tensor -> data_type); 
     DEALLOCATE_PTRS(variance, mean);
     return tensor;
 }
