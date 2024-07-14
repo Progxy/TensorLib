@@ -269,8 +269,7 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
                 }
             } 
         }
-
-    } else if (op_flag == POW) for (unsigned int i = 0; i < size; ++i) scalar_op(CAST_PTR_AT_INDEX(temp.data, i, temp.data_type), CAST_PTR_AT_INDEX(a.data, i, temp.data_type), b.data, temp.data_type, POW);  
+    } else if (op_flag == POW) for (unsigned int i = 0; i < size; ++i) SCALAR_POW(CAST_PTR_AT_INDEX(temp.data, i, temp.data_type), CAST_PTR_AT_INDEX(a.data, i, temp.data_type), b.data, temp.data_type);  
     else if (is_special_operand_flag) for (unsigned int i = 0; i < size; ++i) CAST_AND_SINGLE_OP_INDEX(a.data, temp.data, i, temp.data_type, op_flag);
     else for (unsigned int i = 0; i < size; ++i) CAST_AND_OP_INDEX(a.data, b.data, temp.data, i, temp.data_type, op_flag);
     
