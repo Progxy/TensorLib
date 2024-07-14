@@ -242,13 +242,10 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
     }
     
     Tensor temp = alloc_tensor(a.shape, a.rank, a.data_type);
+    unsigned int size = tensor_size(a.shape, a.rank);
     unsigned int similar_indices_count = 0;
-    void* exponent = NULL;
 
-    if (op_flag == POW) {
-        exponent = calloc(1, a.data_type);
-        mem_copy(exponent, b.data, b.data_type, 1);
-    } else if (op_flag == DOT) {
+    if (op_flag == DOT) {
         for (unsigned int i = 0; i < (a.rank - 1) && i < (b.rank - 1); ++i, ++similar_indices_count) {
             if (b.shape[i] != a.shape[a.rank - i - 1]) break;
         }
@@ -258,136 +255,25 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         mem_copy(new_shape + (a.rank - similar_indices_count), b.shape + similar_indices_count, b.rank - similar_indices_count, sizeof(unsigned int));
         reshape_tensor(&temp, new_shape, new_rank, a.data_type);
         free(new_shape);
-    }
+
+        unsigned int ext_size = tensor_size(a.shape, a.rank - similar_indices_count);
+        unsigned int int_size = tensor_size(b.shape + similar_indices_count, b.rank - similar_indices_count);
+        unsigned int common_size = tensor_size(a.shape + (a.rank - similar_indices_count), similar_indices_count);
+
+        for (unsigned int i = 0; i < ext_size; ++i) {
+            for (unsigned int j = 0; j < int_size; ++j) {
+                for (unsigned int k = 0; k < common_size; ++k) {
+                    if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i * int_size + j] += CAST_PTR(a.data, float)[i * common_size + k] * CAST_PTR(b.data, float)[k * int_size + j];
+                    else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * int_size + j] += CAST_PTR(a.data, double)[i * common_size + k] * CAST_PTR(b.data, double)[k * int_size + j];
+                    else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * int_size + j] += CAST_PTR(a.data, long double)[i * common_size + k] * CAST_PTR(b.data, long double)[k * int_size + j];
+                }
+            } 
+        }
+
+    } else if (op_flag == POW) for (unsigned int i = 0; i < size; ++i) scalar_op(CAST_PTR_AT_INDEX(temp.data, i, temp.data_type), CAST_PTR_AT_INDEX(a.data, i, temp.data_type), b.data, temp.data_type, POW);  
+    else if (is_special_operand_flag) for (unsigned int i = 0; i < size; ++i) CAST_AND_SINGLE_OP_INDEX(a.data, temp.data, i, temp.data_type, op_flag);
+    else for (unsigned int i = 0; i < size; ++i) CAST_AND_OP_INDEX(a.data, b.data, temp.data, i, temp.data_type, op_flag);
     
-    unsigned int size = tensor_size(a.shape, a.rank);
-    switch (op_flag) {
-        case SUM: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, +);
-                else if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, +);
-                else if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, +);
-            }
-            break;
-        }
-
-        case SUBTRACTION: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, -);
-                else if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, -);
-                else if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, -);
-            }
-            break;
-        }
-
-        case MULTIPLICATION: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, *);
-                else if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, *);
-                else if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, *);
-            }
-            break;
-        }
-
-        case DIVISION: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_AND_OP_INDEX(a, b, temp, i, float, /);
-                else if (a.data_type == FLOAT_64) CAST_AND_OP_INDEX(a, b, temp, i, double, /);
-                else if (a.data_type == FLOAT_128) CAST_AND_OP_INDEX(a, b, temp, i, long double, /);
-            }
-            break;
-        }
-
-        case TANH: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = tanhf(CAST_PTR(a.data, float)[i]);
-                else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = tanh(CAST_PTR(a.data, double)[i]);
-                else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = tanhl(CAST_PTR(a.data, long double)[i]);
-            }
-            break;
-        }
-
-        case POW: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = powf(CAST_PTR(a.data, float)[i], *CAST_PTR(exponent, float));
-                else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = pow(CAST_PTR(a.data, double)[i], *CAST_PTR(exponent, double));
-                else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = powl(CAST_PTR(a.data, long double)[i], *CAST_PTR(exponent, long double));
-            }
-            break;
-        }
-
-        case EXP: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = expf(CAST_PTR(a.data, float)[i]);
-                else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = exp(CAST_PTR(a.data, double)[i]);
-                else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = expl(CAST_PTR(a.data, long double)[i]);
-            }
-            break;
-        }
-
-        case LOG: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = logf(CAST_PTR(a.data, float)[i]);
-                else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = log(CAST_PTR(a.data, double)[i]);
-                else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = logl(CAST_PTR(a.data, long double)[i]);
-            }
-            break;
-        }
-
-        case SQRT: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = sqrtf(CAST_PTR(a.data, float)[i]);
-                else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = sqrt(CAST_PTR(a.data, double)[i]);
-                else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = sqrtl(CAST_PTR(a.data, long double)[i]);
-            }
-            break;
-        }        
-        
-        case MAX: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) SCALAR_MAX(CAST_PTR(temp.data, float) + i, CAST_PTR(a.data, float) + i, CAST_PTR(b.data, float) + i, temp.data_type);
-                else if (a.data_type == FLOAT_64) SCALAR_MAX(CAST_PTR(temp.data, double) + i, CAST_PTR(a.data, double) + i, CAST_PTR(b.data, double) + i, temp.data_type);
-                else if (a.data_type == FLOAT_128) SCALAR_MAX(CAST_PTR(temp.data, long double) + i, CAST_PTR(a.data, long double) + i, CAST_PTR(b.data, long double) + i, temp.data_type);
-            }
-            break;
-        }        
-        
-        case MIN: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) SCALAR_MIN(CAST_PTR(temp.data, float) + i, CAST_PTR(a.data, float) + i, CAST_PTR(b.data, float) + i, temp.data_type);
-                else if (a.data_type == FLOAT_64) SCALAR_MIN(CAST_PTR(temp.data, double) + i, CAST_PTR(a.data, double) + i, CAST_PTR(b.data, double) + i, temp.data_type);
-                else if (a.data_type == FLOAT_128) SCALAR_MIN(CAST_PTR(temp.data, long double) + i, CAST_PTR(a.data, long double) + i, CAST_PTR(b.data, long double) + i, temp.data_type);
-            }
-            break;
-        }
-
-        case CONJUGATE: {
-            for (unsigned int i = 0; i < size; ++i) {
-                if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = -(CAST_PTR(a.data, float)[i]);
-                else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = -(CAST_PTR(a.data, double)[i]);
-                else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = -(CAST_PTR(a.data, long double)[i]);
-            }
-            break;
-        }
-
-        case DOT: {
-            unsigned int ext_size = tensor_size(a.shape, a.rank - similar_indices_count);
-            unsigned int int_size = tensor_size(b.shape + similar_indices_count, b.rank - similar_indices_count);
-            unsigned int common_size = tensor_size(a.shape + (a.rank - similar_indices_count), similar_indices_count);
-
-            for (unsigned int i = 0; i < ext_size; ++i) {
-                for (unsigned int j = 0; j < int_size; ++j) {
-                    for (unsigned int k = 0; k < common_size; ++k) {
-                        if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i * int_size + j] += CAST_PTR(a.data, float)[i * common_size + k] * CAST_PTR(b.data, float)[k * int_size + j];
-                        else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * int_size + j] += CAST_PTR(a.data, double)[i * common_size + k] * CAST_PTR(b.data, double)[k * int_size + j];
-                        else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * int_size + j] += CAST_PTR(a.data, long double)[i * common_size + k] * CAST_PTR(b.data, long double)[k * int_size + j];
-                    }
-                } 
-            }
-            break;
-        }
-    }
-
     copy_tensor(c, temp);
     DEALLOCATE_TENSORS(temp);
 

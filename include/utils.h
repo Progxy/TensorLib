@@ -7,10 +7,11 @@
 #include <math.h>
 #include "./types.h"
 
-#define CAST_AND_OP_INDEX(a, b, c, index, type, op) CAST_PTR(c.data, type)[index] = CAST_AND_OP(CAST_PTR_AT_INDEX(a.data, type, index), CAST_PTR_AT_INDEX(b.data, type, index), type, op) 
+#define CAST_AND_OP_INDEX(a, b, c, index, data_type, op) scalar_op(CAST_PTR_AT_INDEX(c, index, data_type), CAST_PTR_AT_INDEX(a, index, data_type), CAST_PTR_AT_INDEX(b, index, data_type), data_type, op)
+#define CAST_AND_SINGLE_OP_INDEX(a, c, index, data_type, op) scalar_op(CAST_PTR_AT_INDEX(c, index, data_type), CAST_PTR_AT_INDEX(a, index, data_type), NULL, data_type, op)
 #define DEALLOCATE_PTRS(...) deallocate_ptrs(sizeof((void*[]){__VA_ARGS__}) / sizeof(void*), __VA_ARGS__)
 #define CAST_AND_OP(a, b, type, op) *CAST_PTR(a, type) op *CAST_PTR(b, type)
-#define CAST_PTR_AT_INDEX(a, type, index) &(CAST_PTR(a, type)[index])
+#define CAST_PTR_AT_INDEX(a, index, type) (CAST_PTR(a, unsigned char) + (type * index))
 #define ASSIGN(val, new_val, data_type) assign_data_type(val, (long double) new_val, data_type)
 #define SCALAR_CONJUGATE(res, a, data_type) scalar_op(res, a, NULL, data_type, CONJUGATE)
 #define SCALAR_MUL(res, a, b, data_type) scalar_op(res, a, b, data_type, MULTIPLICATION)

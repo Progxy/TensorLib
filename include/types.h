@@ -33,4 +33,9 @@ typedef struct GradNode {
     void* exp;
 } GradNode;
 
+typedef struct Value {
+    void* data;
+    DataType data_type;
+} Value;
+
 #endif //_TYPES_H_
