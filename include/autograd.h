@@ -20,6 +20,8 @@
 #define TENSOR_GRAPH_DIV(c, a, b) graph_op(c, a, b, DIVISION)
 #define TENSOR_GRAPH_DOT(c, a, b) graph_op(c, a, b, DOT)
 #define TENSOR_GRAPH_SUM(c, a, b) graph_op(c, a, b, SUM)
+#define TENSOR_GRAPH_MAX(c, a, b) graph_op(c, a, b, MAX)
+#define TENSOR_GRAPH_MIN(c, a, b) graph_op(c, a, b, MIN)
 
 void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     GradNode* node = (GradNode*) calloc(1, sizeof(GradNode));
@@ -103,6 +105,8 @@ Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
 
 void derive_op(GradNode* node, GradNode* child) {
     switch (child -> operation) {
+        case MAX:
+        case MIN:
         case SUM: {
             copy_tensor(&(node -> derived_value), child -> derived_value);
             break;       

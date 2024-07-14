@@ -8,6 +8,7 @@
 #include "./types.h"
 
 #define CAST_AND_OP_INDEX(a, b, c, index, type, op) CAST_PTR(c.data, type)[index] = CAST_AND_OP(CAST_PTR_AT_INDEX(a.data, type, index), CAST_PTR_AT_INDEX(b.data, type, index), type, op) 
+#define DEALLOCATE_PTRS(...) deallocate_ptrs(sizeof((void*[]){__VA_ARGS__}) / sizeof(void*), __VA_ARGS__)
 #define CAST_AND_OP(a, b, type, op) *CAST_PTR(a, type) op *CAST_PTR(b, type)
 #define CAST_PTR_AT_INDEX(a, type, index) &(CAST_PTR(a, type)[index])
 #define ASSIGN(val, new_val, data_type) assign_data_type(val, (long double) new_val, data_type)
@@ -21,6 +22,8 @@
 #define SCALAR_POW(res, a, b, data_type) scalar_op(res, a, b, data_type, POW)
 #define SCALAR_EXP(res, a, data_type) scalar_op(res, a, NULL, data_type, EXP)
 #define SCALAR_LOG(res, a, data_type) scalar_op(res, a, NULL, data_type, LOG)
+#define SCALAR_MAX(res, a, b, data_type) scalar_op(res, a, b, data_type, MAX)
+#define SCALAR_MIN(res, a, b, data_type) scalar_op(res, a, b, data_type, MIN)
 #define IS_GREATER_OR_EQUAL(a, b, data_type) comparison_op(a, b, data_type, GREATER_OR_EQUAL)
 #define IS_LESS_OR_EQUAL(a, b, data_type) comparison_op(a, b, data_type, LESS_OR_EQUAL)
 #define IS_GREATER(a, b, data_type) comparison_op(a, b, data_type, GREATER)
@@ -176,6 +179,20 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             break;
         }
 
+        case MAX: {
+            if (data_type == FLOAT_32) *CAST_PTR(res, float) = MAX(*CAST_PTR(a, float), *CAST_PTR(b, float));
+            else if (data_type == FLOAT_64) *CAST_PTR(res, double) = MAX(*CAST_PTR(a, double), *CAST_PTR(b, double));
+            else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = MAX(*CAST_PTR(a, long double), *CAST_PTR(b, long double));
+            break;
+        }        
+        
+        case MIN: {
+            if (data_type == FLOAT_32) *CAST_PTR(res, float) = MIN(*CAST_PTR(a, float), *CAST_PTR(b, float));
+            else if (data_type == FLOAT_64) *CAST_PTR(res, double) = MIN(*CAST_PTR(a, double), *CAST_PTR(b, double));
+            else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = MIN(*CAST_PTR(a, long double), *CAST_PTR(b, long double));
+            break;
+        }
+
         case CONJUGATE: {
             if (data_type == FLOAT_32) *CAST_PTR(res, float) = -(*CAST_PTR(a, float));
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = -(*CAST_PTR(a, double));
@@ -187,12 +204,31 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
     return res;
 }
 
+void deallocate_ptrs(int len, ...) {
+    va_list args;
+    va_start(args, len);
+    for (int i = 0; i < len; ++i) {
+        void* ptr = va_arg(args, void*);
+        free(ptr);
+    }
+    va_end(args);
+    return;
+}
+
 void* sigmoid_func(void* value, void* result, DataType data_type) {
     // Math: \frac{1}{1 + e^{-value}}
     if (data_type == FLOAT_32) *CAST_PTR(result, float) = (1.0f / (1.0f + expf(*CAST_PTR(value, float) * -1)));
     else if (data_type == FLOAT_64) *CAST_PTR(result, double) = (1.0f / (1.0f + exp(*CAST_PTR(value, double) * -1)));
     else if (data_type == FLOAT_128) *CAST_PTR(result, long double) = (1.0f / (1.0f + expl(*CAST_PTR(value, long double) * -1)));
     return result;
+}
+
+void* normal_func(void* res, void* value, void* variance, void* mean, DataType data_type) {
+    // Math: (2\pi\sigma^2)^{-{1/2}}\exp(-\frac{(x-\mu)^2}{2\sigma^2})
+    if (data_type == FLOAT_32) *CAST_PTR(res, float) = powf(2.0f * (float) M_PI * (*CAST_PTR(variance, float)), -0.5f) * expf(-(powf(*CAST_PTR(value, float) - *CAST_PTR(mean, float), 2.0f) * (2.0f * (*CAST_PTR(variance, float)))));
+    else if (data_type == FLOAT_64) *CAST_PTR(res, double) = pow(2.0 * (double) M_PI * (*CAST_PTR(variance, double)), -0.5) * exp(-(pow(*CAST_PTR(value, double) - *CAST_PTR(mean, double), 2.0) * (2.0 * (*CAST_PTR(variance, double)))));
+    else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = powl(2.0L * (long double) M_PI * (*CAST_PTR(variance, long double)), -0.5L) * expl(-(powl(*CAST_PTR(value, long double) - *CAST_PTR(mean, long double), 2.0L) * (2.0L * (*CAST_PTR(variance, long double)))));
+    return res;
 }
 
 #endif //_UTILS_H_

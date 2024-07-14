@@ -26,24 +26,30 @@
 #define SCALAR_DIV_TENSOR(a, val) scalar_op_tensor(a, val, DIVISION)
 #define SCALAR_SUM_TENSOR(a, val) scalar_op_tensor(a, val, SUM)
 
-unsigned int tensor_size(unsigned int* shape, unsigned int rank);
-void deallocate_tensors(int len, ...);
-Tensor alloc_tensor(unsigned int* shape, unsigned int rank, DataType data_type);
-Tensor empty_tensor(DataType data_type);
-void empty_tensors(int len, ...);
 Tensor alloc_temp_tensor(unsigned int* shape, unsigned int rank, DataType data_type, bool clean_cache_flag);
-Tensor alloc_scalar_tensor(void* val, DataType data_type);
-void print_tensor(Tensor tensor, char* prefix_str, char* tensor_name);
-void fill_tensor(void* val, Tensor tensor);
-void set_tensor(void* new_data, Tensor tensor);
-void randomize_tensor(Tensor tensor);
-void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int rank, DataType data_type);
-Tensor* copy_tensor(Tensor* dest, Tensor src);
-Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag);
-Tensor* scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
 Tensor* contract_tensor(Tensor* tensor, unsigned int contraction_index_a, unsigned int contraction_index_b);
-Tensor* transpose_tensor(Tensor* tensor);
+Tensor* reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int rank, DataType data_type);
+Tensor* extract_tensor(Tensor* out, Tensor tensor, unsigned int index, unsigned int index_dim);
 Tensor identity_tensor(unsigned int shape_base, unsigned int rank, DataType data_type);
+Tensor alloc_tensor(unsigned int* shape, unsigned int rank, DataType data_type);
+Tensor* scalar_op_tensor(Tensor* tensor, void* scalar, OperatorFlag op_flag);
+Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag);
+void print_tensor(Tensor tensor, char* prefix_str, char* tensor_name);
+unsigned int tensor_size(unsigned int* shape, unsigned int rank);
+Tensor alloc_scalar_tensor(void* val, DataType data_type);
+void* tensor_norm(Tensor tensor, void* norm, void* res);
+Tensor* flatten_tensor(Tensor* dest, Tensor src);
+Tensor* concat_tensors(Tensor* dest, Tensor src);
+void set_tensor(void* new_data, Tensor tensor);
+Tensor* copy_tensor(Tensor* dest, Tensor src);
+Tensor* cut_tensor(Tensor* dest, Tensor* src);
+void fill_tensor(void* val, Tensor tensor);
+Tensor* transpose_tensor(Tensor* tensor);
+Tensor empty_tensor(DataType data_type);
+void deallocate_tensors(int len, ...);
+void randomize_tensor(Tensor tensor);
+void empty_tensors(int len, ...);
+Tensor* normal(Tensor* tensor);
 
 /* ------------------------------------------------------------------------------------------------------------------------- */
 
@@ -92,18 +98,6 @@ unsigned int tensor_size(unsigned int* shape, unsigned int rank) {
     return size;
 }
 
-void deallocate_tensors(int len, ...) {
-    va_list args;
-    va_start(args, len);
-    for (int i = 0; i < len; ++i) {
-        Tensor tensor = va_arg(args, Tensor);
-        free(tensor.data);
-        free(tensor.shape);
-    }
-    va_end(args);
-    return;
-}
-
 Tensor alloc_tensor(unsigned int* shape, unsigned int rank, DataType data_type) {
     ASSERT(!is_valid_enum(data_type, (unsigned char*) data_types, ARR_SIZE(data_types)), "INVALID_DATA_TYPE");
     ASSERT(!is_valid_shape(shape, rank), "INVALID_TENSOR_SHAPE");
@@ -114,6 +108,18 @@ Tensor alloc_tensor(unsigned int* shape, unsigned int rank, DataType data_type) 
     tensor.data = calloc(tensor_size(shape, rank), tensor.data_type); 
     ASSERT(tensor.data == NULL, "BAD_MEMORY");
     return tensor;
+}
+
+void deallocate_tensors(int len, ...) {
+    va_list args;
+    va_start(args, len);
+    for (int i = 0; i < len; ++i) {
+        Tensor tensor = va_arg(args, Tensor);
+        free(tensor.data);
+        free(tensor.shape);
+    }
+    va_end(args);
+    return;
 }
 
 Tensor empty_tensor(DataType data_type) {
@@ -207,7 +213,7 @@ void randomize_tensor(Tensor tensor) {
     return;
 }
 
-void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int rank, DataType data_type) {
+Tensor* reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int rank, DataType data_type) {
     dest -> shape = (unsigned int*) realloc(dest -> shape, sizeof(unsigned int) * rank);
     ASSERT(dest -> shape == NULL, "BAD_MEMORY");
     mem_copy(dest -> shape, shape, sizeof(unsigned int), rank);
@@ -216,7 +222,7 @@ void reshape_tensor(Tensor* dest, unsigned int* shape, unsigned int rank, DataTy
     free(dest -> data);
     dest -> data = calloc(tensor_size(dest -> shape, dest -> rank), dest -> data_type);
     ASSERT(dest -> data == NULL, "BAD_MEMORY");
-    return;
+    return dest;
 }
 
 Tensor* copy_tensor(Tensor* dest, Tensor src) {
@@ -333,6 +339,24 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
                 if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i] = sqrtf(CAST_PTR(a.data, float)[i]);
                 else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i] = sqrt(CAST_PTR(a.data, double)[i]);
                 else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i] = sqrtl(CAST_PTR(a.data, long double)[i]);
+            }
+            break;
+        }        
+        
+        case MAX: {
+            for (unsigned int i = 0; i < size; ++i) {
+                if (a.data_type == FLOAT_32) SCALAR_MAX(CAST_PTR(temp.data, float) + i, CAST_PTR(a.data, float) + i, CAST_PTR(b.data, float) + i, temp.data_type);
+                else if (a.data_type == FLOAT_64) SCALAR_MAX(CAST_PTR(temp.data, double) + i, CAST_PTR(a.data, double) + i, CAST_PTR(b.data, double) + i, temp.data_type);
+                else if (a.data_type == FLOAT_128) SCALAR_MAX(CAST_PTR(temp.data, long double) + i, CAST_PTR(a.data, long double) + i, CAST_PTR(b.data, long double) + i, temp.data_type);
+            }
+            break;
+        }        
+        
+        case MIN: {
+            for (unsigned int i = 0; i < size; ++i) {
+                if (a.data_type == FLOAT_32) SCALAR_MIN(CAST_PTR(temp.data, float) + i, CAST_PTR(a.data, float) + i, CAST_PTR(b.data, float) + i, temp.data_type);
+                else if (a.data_type == FLOAT_64) SCALAR_MIN(CAST_PTR(temp.data, double) + i, CAST_PTR(a.data, double) + i, CAST_PTR(b.data, double) + i, temp.data_type);
+                else if (a.data_type == FLOAT_128) SCALAR_MIN(CAST_PTR(temp.data, long double) + i, CAST_PTR(a.data, long double) + i, CAST_PTR(b.data, long double) + i, temp.data_type);
             }
             break;
         }
@@ -459,6 +483,104 @@ Tensor identity_tensor(unsigned int shape_base, unsigned int rank, DataType data
         else if (data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i * shape_base + i] = 1.0;
         else if (data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i * shape_base + i] = 1.0L;
     } 
+    return tensor;
+}
+
+Tensor* extract_tensor(Tensor* out, Tensor tensor, unsigned int index, unsigned int index_dim) {
+    unsigned int new_dim = tensor.rank - index_dim; 
+    unsigned int* new_shape = (unsigned int*) calloc(new_dim, sizeof(unsigned int));
+    new_shape[0] = 1;
+    for (unsigned int i = 1; i < new_dim; ++i) new_shape[i] = tensor.shape[i + index_dim];
+    reshape_tensor(out, new_shape, new_dim, tensor.data_type);
+    free(new_shape);
+    unsigned int offset = calc_shape_offset(tensor.shape, index_dim, tensor.rank) * index;
+    if (tensor.data_type == FLOAT_32) mem_copy(out -> data, CAST_PTR(tensor.data, float) + offset, tensor.data_type, tensor_size(out -> shape, out -> rank));
+    else if (tensor.data_type == FLOAT_64) mem_copy(out -> data, CAST_PTR(tensor.data, double) + offset, tensor.data_type, tensor_size(out -> shape, out -> rank));
+    else if (tensor.data_type == FLOAT_128) mem_copy(out -> data, CAST_PTR(tensor.data, long double) + offset, tensor.data_type, tensor_size(out -> shape, out -> rank));
+    return out;
+}
+
+Tensor* concat_tensors(Tensor* dest, Tensor src) {
+    if (dest -> shape == NULL || dest -> data == NULL) {
+        copy_tensor(dest, src);
+        return dest;
+    }
+
+    ASSERT(dest -> data_type != src.data_type, "DATA_TYPE_MISMATCH");
+    unsigned int size = tensor_size(src.shape, src.rank);
+    unsigned int offset = tensor_size(dest -> shape, dest -> rank);
+    ASSERT(size % (offset / dest -> shape[0]), "INVALID_SHAPE");
+    dest -> shape[0] += size / (offset / dest -> shape[0]);
+    dest -> data = realloc(dest -> data, dest -> data_type * (size + offset));
+    
+    for (unsigned int i = 0; i < size; ++i) {
+        if (dest -> data_type == FLOAT_32) CAST_PTR(dest -> data, float)[offset + i] = CAST_PTR(src.data, float)[i];
+        else if (dest -> data_type == FLOAT_64) CAST_PTR(dest -> data, double)[offset + i] = CAST_PTR(src.data, double)[i];
+        else if (dest -> data_type == FLOAT_128) CAST_PTR(dest -> data, long double)[offset + i] = CAST_PTR(src.data, long double)[i];
+    }   
+
+    return dest;
+}
+
+Tensor* flatten_tensor(Tensor* dest, Tensor src) {
+    ASSERT(dest -> data_type != src.data_type, "DATA_TYPE_MISMATCH");
+    unsigned int size = tensor_size(src.shape, src.rank);
+    unsigned int new_shape[] = { size };
+    reshape_tensor(dest, new_shape, 1, dest -> data_type);
+    mem_copy(dest -> data, src.data, dest -> data_type, size);
+    return dest;
+}
+
+Tensor* cut_tensor(Tensor* dest, Tensor* src) {
+    ASSERT(dest -> data_type != src -> data_type, "DATA_TYPE_MISMATCH");
+
+    unsigned int cut_size = tensor_size(dest -> shape, dest -> rank);
+    unsigned int src_size = tensor_size(src -> shape, src -> rank);
+    ASSERT(src_size < cut_size, "SIZE_MISMATCH");
+    ASSERT(cut_size % (src_size / src -> shape[0]), "INVALID_SHAPE");
+    mem_copy(dest -> data, src -> data, dest -> data_type, cut_size);
+
+    void* new_ptr = calloc(src_size - cut_size, src -> data_type);
+    for (unsigned int i = 0; i < (src_size - cut_size); ++i) {
+        if (src -> data_type == FLOAT_32) CAST_PTR(new_ptr, float)[i] = CAST_PTR(src -> data, float)[i + cut_size];
+        else if (src -> data_type == FLOAT_64) CAST_PTR(new_ptr, double)[i] = CAST_PTR(src -> data, double)[i + cut_size];
+        else if (src -> data_type == FLOAT_128) CAST_PTR(new_ptr, long double)[i] = CAST_PTR(src -> data, long double)[i + cut_size];
+    }
+    
+    free(src -> data);
+    src -> data = new_ptr;
+    src -> shape[0] -= cut_size / (src_size / src -> shape[0]);
+
+    return dest;
+}
+
+void* tensor_norm(Tensor tensor, void* norm, void* res) {
+    Tensor temp_tensor = empty_tensor(tensor.data_type);
+    flatten_tensor(&temp_tensor, tensor);
+    void* temp = calloc(1, tensor.data_type);
+    unsigned int size = tensor_size(temp_tensor.shape, temp_tensor.rank);
+    for (unsigned int i = 0; i < size; ++i) {
+        if (tensor.data_type == FLOAT_32) *CAST_PTR(temp, float) += CAST_PTR(temp_tensor.data, float)[i]; 
+        else if (tensor.data_type == FLOAT_64) *CAST_PTR(temp, double) += CAST_PTR(temp_tensor.data, double)[i]; 
+        else if (tensor.data_type == FLOAT_128) *CAST_PTR(temp, long double) += CAST_PTR(temp_tensor.data, long double)[i]; 
+    }
+    SCALAR_POW(res, temp, norm, tensor.data_type);
+    DEALLOCATE_TENSORS(temp_tensor);
+    free(temp);
+    return res;
+}
+
+Tensor* normal(Tensor* tensor) {
+    void* variance = calloc(1, tensor -> data_type);
+    void* mean = calloc(1, tensor -> data_type);
+    ASSIGN(variance, 2.0L / (tensor -> shape[0] + tensor -> shape[1]), tensor -> data_type);
+    unsigned int size = tensor_size(tensor -> shape, tensor -> rank);
+    for (unsigned int i = 0; i < size; ++i) {
+        if (tensor -> data_type == FLOAT_32) normal_func(CAST_PTR(tensor -> data, float) + i, CAST_PTR(tensor -> data, float) + i, variance, mean, tensor -> data_type); 
+        else if (tensor -> data_type == FLOAT_64) normal_func(CAST_PTR(tensor -> data, double) + i, CAST_PTR(tensor -> data, double) + i, variance, mean, tensor -> data_type); 
+        else if (tensor -> data_type == FLOAT_128) normal_func(CAST_PTR(tensor -> data, long double) + i, CAST_PTR(tensor -> data, long double) + i, variance, mean, tensor -> data_type); 
+    }
+    DEALLOCATE_PTRS(variance, mean);
     return tensor;
 }
 
