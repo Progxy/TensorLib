@@ -149,7 +149,7 @@ void derive_op(GradNode* node, GradNode* child) {
 
         case EXP: {
             copy_tensor(&(node -> derived_value), *(child -> value));
-            DOT_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
+            MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
             break;
         }
 

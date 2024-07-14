@@ -11,14 +11,13 @@ void test_gelu();
 int main() {
     unsigned int shape_a[] = {2, 2};
     float data_a[] = {1, 2, 3, 4};
-    float exp = 2.0f;
 
     Tensor a = alloc_tensor(shape_a, ARR_SIZE(shape_a), FLOAT_32); 
     set_tensor(data_a, a);
     alloc_grad_graph_node(a.data_type, &a);
 
     Tensor c = empty_tensor(a.data_type);
-    TENSOR_GRAPH_POW(&c, a, &exp);
+    TENSOR_GRAPH_EXP(&c, a);
 
     derive_r_node(c.grad_node, TRUE);
     PRINT_TENSOR(DERIVED_TENSOR(a.grad_node), "\t");
