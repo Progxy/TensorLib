@@ -25,9 +25,10 @@
 #define SCALAR_MUL(res, a, b, data_type) scalar_op(res, a, b, data_type, MULTIPLICATION)
 #define SCALAR_SUB(res, a, b, data_type) scalar_op(res, a, b, data_type, SUBTRACTION)
 #define SCALAR_DIV(res, a, b, data_type) scalar_op(res, a, b, data_type, DIVISION)
-#define SCALAR_ABS(res, a, b, data_type) scalar_op(res, a, NULL, data_type, ABS)
 #define SCALAR_SQRT(res, a, data_type) scalar_op(res, a, NULL, data_type, SQRT)
 #define SCALAR_TANH(res, a, data_type) scalar_op(res, a, NULL, data_type, TANH)
+#define SCALAR_NORM(res, a, b, data_type) scalar_op(res, a, b, data_type, NORM)
+#define SCALAR_ABS(res, a, data_type) scalar_op(res, a, NULL, data_type, ABS)
 #define SCALAR_SUM(res, a, b, data_type) scalar_op(res, a, b, data_type, SUM)
 #define SCALAR_POW(res, a, b, data_type) scalar_op(res, a, b, data_type, POW)
 #define SCALAR_EXP(res, a, data_type) scalar_op(res, a, NULL, data_type, EXP)
@@ -250,6 +251,11 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             if (data_type == FLOAT_32) *CAST_PTR(res, float) = -(*CAST_PTR(a, float));
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = -(*CAST_PTR(a, double));
             else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = -(*CAST_PTR(a, long double));
+            break;
+        }
+
+        case NORM: {
+            SCALAR_POW(res, SCALAR_ABS(res, a, data_type), b, data_type);
             break;
         }
     }
