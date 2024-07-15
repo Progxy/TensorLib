@@ -10,17 +10,23 @@
 #define PRINT_TENSOR(tensor, prefix) print_tensor(tensor, prefix, #tensor)
 #define PRINT_SHAPE(tensor) print_shape((tensor).shape, (tensor).rank)
 #define TENSOR_SIZE(tensor) tensor_size((tensor).shape, (tensor).rank)
+
+// TENSOR FUNCTIONS OPERATIONS
 #define POW_TENSOR(c, a, exp) op_tensor(c, a, (Tensor) {.data = exp, .data_type = (a).data_type}, POW)
 #define CONJUGATE_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, CONJUGATE)
 #define TANH_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, TANH)
 #define SQRT_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, SQRT)
 #define EXP_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, EXP)
 #define LOG_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, LOG)
+
+// TENSORS OPERATIONS
 #define MULTIPLY_TENSOR(c, a, b) op_tensor(c, a, b, MULTIPLICATION)
 #define SUBTRACT_TENSOR(c, a, b) op_tensor(c, a, b, SUBTRACTION)
 #define DIVIDE_TENSOR(c, a, b) op_tensor(c, a, b, DIVISION)
 #define DOT_TENSOR(c, a, b) op_tensor(c, a, b, DOT)
 #define SUM_TENSOR(c, a, b) op_tensor(c, a, b, SUM)
+
+// SCALAR OPERATIONS ON TENSORS
 #define SCALAR_SUB_TENSOR(a, val) scalar_op_tensor(a, val, SUBTRACTION)
 #define SCALAR_MUL_TENSOR(a, val) scalar_op_tensor(a, val, MULTIPLICATION)
 #define SCALAR_DIV_TENSOR(a, val) scalar_op_tensor(a, val, DIVISION)
@@ -247,15 +253,18 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         unsigned int int_size = tensor_size(b.shape + similar_indices_count, b.rank - similar_indices_count);
         unsigned int common_size = tensor_size(a.shape + (a.rank - similar_indices_count), similar_indices_count);
 
+        void* tmp = (void*) calloc(1, a.data_type);
         for (unsigned int i = 0; i < ext_size; ++i) {
             for (unsigned int j = 0; j < int_size; ++j) {
                 for (unsigned int k = 0; k < common_size; ++k) {
-                    if (a.data_type == FLOAT_32) CAST_PTR(temp.data, float)[i * int_size + j] += CAST_PTR(a.data, float)[i * common_size + k] * CAST_PTR(b.data, float)[k * int_size + j];
-                    else if (a.data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * int_size + j] += CAST_PTR(a.data, double)[i * common_size + k] * CAST_PTR(b.data, double)[k * int_size + j];
-                    else if (a.data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * int_size + j] += CAST_PTR(a.data, long double)[i * common_size + k] * CAST_PTR(b.data, long double)[k * int_size + j];
+                    SCALAR_MUL(tmp, CAST_PTR_AT_INDEX(a.data, i * common_size + k, a.data_type), CAST_PTR_AT_INDEX(b.data, k * int_size + j, b.data_type), a.data_type);
+                    SCALAR_SUM(CAST_PTR_AT_INDEX(temp.data, i * int_size + j, temp.data_type), CAST_PTR_AT_INDEX(temp.data, i * int_size + j, temp.data_type), tmp, temp.data_type);
                 }
             } 
         }
+        
+        free(tmp);
+
     } else if (op_flag == POW) for (unsigned int i = 0; i < size; ++i) SCALAR_POW(CAST_PTR_AT_INDEX(temp.data, i, temp.data_type), CAST_PTR_AT_INDEX(a.data, i, temp.data_type), b.data, temp.data_type);  
     else if (is_special_operand_flag) for (unsigned int i = 0; i < size; ++i) CAST_AND_SINGLE_OP_INDEX(a.data, temp.data, i, temp.data_type, op_flag);
     else for (unsigned int i = 0; i < size; ++i) CAST_AND_OP_INDEX(a.data, b.data, temp.data, i, temp.data_type, op_flag);
@@ -333,9 +342,7 @@ Tensor* transpose_tensor(Tensor* tensor) {
 
     for (unsigned int i = 0; i < rows; ++i) {
         for (unsigned int j = 0; j < cols; ++j) {
-            if (tensor -> data_type == FLOAT_32) CAST_PTR(temp.data, float)[j * rows + i] = CAST_PTR(tensor -> data, float)[i * cols + j];
-            else if (tensor -> data_type == FLOAT_64) CAST_PTR(temp.data, double)[i * cols + j] = CAST_PTR(tensor -> data, double)[j * rows + i];
-            else if (tensor -> data_type == FLOAT_128) CAST_PTR(temp.data, long double)[i * cols + j] = CAST_PTR(tensor -> data, long double)[j * rows + i];
+            mem_copy(CAST_PTR_AT_INDEX(temp.data, j * rows + i, temp.data_type), CAST_PTR_AT_INDEX(tensor -> data, i * cols + j, tensor -> data_type), tensor -> data_type, 1);
         }
     }
 
@@ -348,11 +355,7 @@ Tensor* transpose_tensor(Tensor* tensor) {
 Tensor identity_tensor(unsigned int shape_base, unsigned int rank, DataType data_type) {
     unsigned int shape[] = {shape_base, shape_base};
     Tensor tensor = alloc_tensor(shape, rank, data_type);
-    for (unsigned int i = 0; i < shape_base; ++i) {
-        if (data_type == FLOAT_32) CAST_PTR(tensor.data, float)[i * shape_base + i] = 1.0f;
-        else if (data_type == FLOAT_64) CAST_PTR(tensor.data, double)[i * shape_base + i] = 1.0;
-        else if (data_type == FLOAT_128) CAST_PTR(tensor.data, long double)[i * shape_base + i] = 1.0L;
-    } 
+    for (unsigned int i = 0; i < shape_base; ++i) ASSIGN(CAST_PTR_AT_INDEX(tensor.data, i * shape_base + i, tensor.data_type), 1.0L, tensor.data_type);
     return tensor;
 }
 
