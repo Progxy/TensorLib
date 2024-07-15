@@ -13,6 +13,7 @@
 #define ASSERT(condition, err_msg) assert(condition, #condition, __LINE__, __FILE__, err_msg)
 #define CAST_PTR_AT_INDEX(a, index, type) (CAST_PTR(a, unsigned char) + (type * index))
 #define CAST_AND_OP(a, b, type, op) *CAST_PTR(a, type) op *CAST_PTR(b, type)
+#define ABS_T(x, type) (type) (x ? (long double) x > 0.0L ? x : -x : 0.0L)
 #define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define CAST_PTR(ptr, type) ((type*) (ptr))
 #define MAX(a, b) (a >= b ? a : b)
@@ -24,6 +25,7 @@
 #define SCALAR_MUL(res, a, b, data_type) scalar_op(res, a, b, data_type, MULTIPLICATION)
 #define SCALAR_SUB(res, a, b, data_type) scalar_op(res, a, b, data_type, SUBTRACTION)
 #define SCALAR_DIV(res, a, b, data_type) scalar_op(res, a, b, data_type, DIVISION)
+#define SCALAR_ABS(res, a, b, data_type) scalar_op(res, a, NULL, data_type, ABS)
 #define SCALAR_SQRT(res, a, data_type) scalar_op(res, a, NULL, data_type, SQRT)
 #define SCALAR_TANH(res, a, data_type) scalar_op(res, a, NULL, data_type, TANH)
 #define SCALAR_SUM(res, a, b, data_type) scalar_op(res, a, b, data_type, SUM)
@@ -36,6 +38,8 @@
 // COMPARISON OPERATIONS
 #define IS_GREATER_OR_EQUAL(a, b, data_type) comparison_op(a, b, data_type, GREATER_OR_EQUAL)
 #define IS_LESS_OR_EQUAL(a, b, data_type) comparison_op(a, b, data_type, LESS_OR_EQUAL)
+#define IS_POSITIVE(a, data_type) comparison_op(a, NULL, data_type, POSITIVE)
+#define IS_NEGATIVE(a, data_type) comparison_op(a, NULL, data_type, NEGATIVE)
 #define IS_GREATER(a, b, data_type) comparison_op(a, b, data_type, GREATER)
 #define IS_EQUAL(a, b, data_type) comparison_op(a, b, data_type, EQUAL)
 #define IS_LESS(a, b, data_type) comparison_op(a, b, data_type, LESS)
@@ -217,6 +221,13 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             if (data_type == FLOAT_32) *CAST_PTR(res, float) = MIN(*CAST_PTR(a, float), *CAST_PTR(b, float));
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = MIN(*CAST_PTR(a, double), *CAST_PTR(b, double));
             else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = MIN(*CAST_PTR(a, long double), *CAST_PTR(b, long double));
+            break;
+        }
+
+        case ABS: {
+            if (data_type == FLOAT_32) *CAST_PTR(res, float) = ABS_T(*CAST_PTR(a, float), float);
+            else if (data_type == FLOAT_64) *CAST_PTR(res, double) = ABS_T(*CAST_PTR(a, double), double);
+            else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = ABS_T(*CAST_PTR(a, long double), long double);
             break;
         }
 

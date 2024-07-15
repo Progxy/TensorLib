@@ -3,18 +3,22 @@
 
 #include "./tensor.h"
 
-#define NODE_TENSOR(node) CAST_PTR(node, GradNode) -> value
-#define NODE_DERIVED_TENSOR(node) CAST_PTR(node, GradNode) -> derived_value
-#define IS_DENOMINATOR(parent, child) parent == child -> parents[1]
-#define DEALLOCATE_GRAD_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) FALSE, __VA_ARGS__)
-#define DEALLOCATE_GRAD_SINGLE_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) TRUE, __VA_ARGS__)
 #define alloc_tensor_grad_graph_filled(tensor, shape, rank, data_type, val) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), fill_tensor(val, tensor), &tensor))
 #define alloc_tensor_grad_graph(tensor, shape, rank, data_type) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), &tensor))
+#define DEALLOCATE_GRAD_SINGLE_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) TRUE, __VA_ARGS__)
+#define DEALLOCATE_GRAD_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) FALSE, __VA_ARGS__)
+#define NODE_DERIVED_TENSOR(node) CAST_PTR(node, GradNode) -> derived_value
+#define IS_DENOMINATOR(parent, child) parent == child -> parents[1]
+#define NODE_TENSOR(node) CAST_PTR(node, GradNode) -> value
+
+// TENSOR FUNCTIONS OPERATIONS
 #define TENSOR_GRAPH_POW(c, a, val) graph_op(c, a, (Tensor) {.data = val, .data_type = (a).data_type}, POW)
 #define TENSOR_GRAPH_TANH(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, TANH)
 #define TENSOR_GRAPH_SQRT(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, SQRT)
 #define TENSOR_GRAPH_EXP(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, EXP)
 #define TENSOR_GRAPH_LOG(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, LOG)
+
+// TENSORS OPERATIONS
 #define TENSOR_GRAPH_MUL(c, a, b) graph_op(c, a, b, MULTIPLICATION)
 #define TENSOR_GRAPH_SUB(c, a, b) graph_op(c, a, b, SUBTRACTION)
 #define TENSOR_GRAPH_DIV(c, a, b) graph_op(c, a, b, DIVISION)
@@ -197,10 +201,19 @@ void derive_op(GradNode* node, GradNode* child) {
             ASSIGN(val, 1.0L, node -> derived_value.data_type);
             unsigned int size = TENSOR_SIZE(node -> derived_value);
             for (unsigned int i = 0; i < size; ++i) {
-                if (!IS_EQUAL(CAST_PTR(child -> value -> data, unsigned char) + (node -> derived_value.data_type * i), CAST_PTR(node -> value -> data, unsigned char) + (i * node -> derived_value.data_type), node -> derived_value.data_type)) continue;
-                ASSIGN(CAST_PTR(node -> derived_value.data, unsigned char) + (node -> derived_value.data_type * i), 1.0L, node -> derived_value.data_type);
+                if (!IS_EQUAL(CAST_PTR_AT_INDEX(child -> value -> data, i, node -> derived_value.data_type), CAST_PTR_AT_INDEX(node -> value -> data, i, node -> value -> data_type), node -> derived_value.data_type)) continue;
+                ASSIGN(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), 1.0L, node -> derived_value.data_type);
             }
             free(val);
+            break;
+        }
+
+        case ABS: {
+            unsigned int size = TENSOR_SIZE(node -> derived_value);
+            for (unsigned int i = 0; i < size; ++i) {
+                if (IS_NEGATIVE(CAST_PTR_AT_INDEX(node -> value -> data, i, node -> value -> data_type), node -> value -> data_type)) ASSIGN(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), -1.0L, node -> derived_value.data_type); 
+                else if (IS_POSITIVE(CAST_PTR_AT_INDEX(node -> value -> data, i, node -> value -> data_type), node -> value -> data_type)) ASSIGN(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), -1.0L, node -> derived_value.data_type); 
+            }
             break;
         }
                 
