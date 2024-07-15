@@ -139,6 +139,21 @@ bool comparison_op(void* a, void* b, DataType data_type, ComparisonFlag comparis
             else if (data_type == FLOAT_128) return CAST_AND_OP(a, b, long double, >=);
             return FALSE;
         }
+
+        case NEGATIVE: {
+            if (data_type == FLOAT_32) return *CAST_PTR(a, float) < 0.0f;
+            else if (data_type == FLOAT_64) return *CAST_PTR(a, double) < 0.0;
+            else if (data_type == FLOAT_128) return *CAST_PTR(a, long double) < 0.0L;
+            return FALSE;
+        }
+        
+        case POSITIVE: {
+            if (data_type == FLOAT_32) return *CAST_PTR(a, float) > 0.0f;
+            else if (data_type == FLOAT_64) return *CAST_PTR(a, double) > 0.0;
+            else if (data_type == FLOAT_128) return *CAST_PTR(a, long double) > 0.0L;
+            return FALSE;
+        }
+
     }
     return FALSE;
 }
