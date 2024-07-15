@@ -10,9 +10,17 @@
 #define CAST_AND_OP_INDEX(a, b, c, index, data_type, op) scalar_op(CAST_PTR_AT_INDEX(c, index, data_type), CAST_PTR_AT_INDEX(a, index, data_type), CAST_PTR_AT_INDEX(b, index, data_type), data_type, op)
 #define CAST_AND_SINGLE_OP_INDEX(a, c, index, data_type, op) scalar_op(CAST_PTR_AT_INDEX(c, index, data_type), CAST_PTR_AT_INDEX(a, index, data_type), NULL, data_type, op)
 #define DEALLOCATE_PTRS(...) deallocate_ptrs(sizeof((void*[]){__VA_ARGS__}) / sizeof(void*), __VA_ARGS__)
-#define CAST_AND_OP(a, b, type, op) *CAST_PTR(a, type) op *CAST_PTR(b, type)
-#define CAST_PTR_AT_INDEX(a, index, type) (CAST_PTR(a, unsigned char) + (type * index))
 #define ASSIGN(val, new_val, data_type) assign_data_type(val, (long double) new_val, data_type)
+#define ASSERT(condition, err_msg) assert(condition, #condition, __LINE__, __FILE__, err_msg)
+#define CAST_PTR_AT_INDEX(a, index, type) (CAST_PTR(a, unsigned char) + (type * index))
+#define CAST_AND_OP(a, b, type, op) *CAST_PTR(a, type) op *CAST_PTR(b, type)
+#define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#define CAST_PTR(ptr, type) ((type*) (ptr))
+#define MAX(a, b) (a >= b ? a : b)
+#define MIN(a, b) (a <= b ? a : b)
+#define NOT_USED(var) (void) var
+
+// OPERATIONS ON SCALAR VALUES
 #define SCALAR_CONJUGATE(res, a, data_type) scalar_op(res, a, NULL, data_type, CONJUGATE)
 #define SCALAR_MUL(res, a, b, data_type) scalar_op(res, a, b, data_type, MULTIPLICATION)
 #define SCALAR_SUB(res, a, b, data_type) scalar_op(res, a, b, data_type, SUBTRACTION)
@@ -25,17 +33,27 @@
 #define SCALAR_LOG(res, a, data_type) scalar_op(res, a, NULL, data_type, LOG)
 #define SCALAR_MAX(res, a, b, data_type) scalar_op(res, a, b, data_type, MAX)
 #define SCALAR_MIN(res, a, b, data_type) scalar_op(res, a, b, data_type, MIN)
+
+// COMPARISON OPERATIONS
 #define IS_GREATER_OR_EQUAL(a, b, data_type) comparison_op(a, b, data_type, GREATER_OR_EQUAL)
 #define IS_LESS_OR_EQUAL(a, b, data_type) comparison_op(a, b, data_type, LESS_OR_EQUAL)
 #define IS_GREATER(a, b, data_type) comparison_op(a, b, data_type, GREATER)
 #define IS_EQUAL(a, b, data_type) comparison_op(a, b, data_type, EQUAL)
 #define IS_LESS(a, b, data_type) comparison_op(a, b, data_type, LESS)
-#define ASSERT(condition, err_msg) assert(condition, #condition, __LINE__, __FILE__, err_msg);
-#define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-#define CAST_PTR(ptr, type) ((type*) (ptr))
-#define NOT_USED(var) (void) var
-#define MAX(a, b) (a >= b ? a : b)
-#define MIN(a, b) (a <= b ? a : b)
+
+bool is_valid_enum(unsigned char enum_value, unsigned char* enum_values, unsigned int enum_values_count);
+void assert(bool condition, char* condition_str, unsigned int line, char* file, char* err_msg);
+void* normal_func(void* res, void* value, void* variance, void* mean, DataType data_type);
+void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag operation);
+bool comparison_op(void* a, void* b, DataType data_type, ComparisonFlag comparison);
+void* assign_data_type(void* val, long double new_val, DataType data_type);
+void mem_copy(void* dest, void* src, unsigned char size, unsigned int n);
+void mem_set(void* dest, void* src, unsigned char size, unsigned int n);
+void* sigmoid_func(void* value, void* result, DataType data_type);
+void deallocate_ptrs(int len, ...);
+void init_seed();
+
+/* ------------------------------------------------------------------------------------------------ */
 
 void assert(bool condition, char* condition_str, unsigned int line, char* file, char* err_msg) {
     if (condition) {
