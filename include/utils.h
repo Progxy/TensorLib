@@ -3,7 +3,6 @@
 
 #include <time.h>
 #include <stdarg.h>
-#define __USE_MISC
 #include <math.h>
 #include "./types.h"
 
@@ -40,6 +39,9 @@
 #define IS_GREATER(a, b, data_type) comparison_op(a, b, data_type, GREATER)
 #define IS_EQUAL(a, b, data_type) comparison_op(a, b, data_type, EQUAL)
 #define IS_LESS(a, b, data_type) comparison_op(a, b, data_type, LESS)
+
+// CONSTANT VALUES
+#define M_PI 3.14159265358979323846
 
 bool is_valid_enum(unsigned char enum_value, unsigned char* enum_values, unsigned int enum_values_count);
 void assert(bool condition, char* condition_str, unsigned int line, char* file, char* err_msg);
