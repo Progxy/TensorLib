@@ -9,7 +9,6 @@ void test_gelu();
 #define DERIVED_VALUE(node, type) CAST_PTR(DERIVED_TENSOR(node).data, type)
 
 int main() {
-    float val = 2.0f;
     unsigned int shape[] = {2, 2};
     float data[] = {1, -3, 2, -4};
     Tensor x = alloc_tensor(shape, ARR_SIZE(shape), FLOAT_32);
@@ -19,6 +18,7 @@ int main() {
     Tensor c;
     EMPTY_TENSORS(x.data_type, &c);
 
+    float val = 2.0f;
     TENSOR_GRAPH_NORM(&c, x, &val);
     PRINT_TENSOR(c, "\t");
     DERIVE_NODE_REVERSE(c.grad_node);

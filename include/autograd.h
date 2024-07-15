@@ -95,7 +95,7 @@ Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
     add_child(c -> grad_node, a.grad_node);
     if (operation == EXP || operation == TANH || operation == LOG || operation == ABS) return c;
     else if (operation == POW || operation == NORM) {
-        CAST_PTR(c -> grad_node, GradNode) -> exp = calloc(1, a.data_type);
+        CAST_PTR(c -> grad_node, GradNode) -> exp = (void*) calloc(1, a.data_type);
         mem_copy(CAST_PTR(c -> grad_node, GradNode) -> exp, b.data, b.data_type, 1);
         return c;
     } else if (operation == SQRT) {
@@ -229,7 +229,7 @@ void derive_op(GradNode* node, GradNode* child) {
 
         case NORM: {
             void* temp = (void*) calloc(1, node -> derived_value.data_type);
-            SCALAR_SUB(temp, child -> exp, ASSIGN(temp, 1.0L, node ->derived_value.data_type), node -> derived_value.data_type);
+            SCALAR_SUB(temp, child -> exp, ASSIGN(temp, 1.0L, node -> derived_value.data_type), node -> derived_value.data_type);
             void* zero = (void*) calloc(1, node -> derived_value.data_type);
             unsigned int size = TENSOR_SIZE(node -> derived_value);
             for (unsigned int i = 0; i < size; ++i) {
@@ -239,7 +239,7 @@ void derive_op(GradNode* node, GradNode* child) {
                     SCALAR_MUL(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), SCALAR_POW(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), CAST_PTR_AT_INDEX(node -> value -> data, i, node -> value -> data_type), temp, node -> derived_value.data_type), temp, node -> derived_value.data_type);
                     CAST_AND_OP_INDEX(node -> derived_value.data, child -> value -> data, node -> derived_value.data, i, node -> derived_value.data_type, DIVISION);
                 }
-                if (IS_NEGATIVE(CAST_PTR_AT_INDEX(node -> value -> data, i, node -> value -> data_type), node -> value -> data_type)) CAST_AND_SINGLE_OP_INDEX(node -> derived_value.data, node -> derived_value.data, i, node -> derived_value.data_type, CONJUGATE);
+                if (IS_NEGATIVE(CAST_PTR_AT_INDEX(node -> value -> data, i, node -> value -> data_type), node -> value -> data_type) && !IS_NEGATIVE(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), node -> derived_value.data_type)) CAST_AND_SINGLE_OP_INDEX(node -> derived_value.data, node -> derived_value.data, i, node -> derived_value.data_type, CONJUGATE);
             }
             DEALLOCATE_PTRS(temp, zero);
             MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);

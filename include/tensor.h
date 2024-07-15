@@ -270,8 +270,8 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         void* tmp = calloc(1, a.data_type);
         void* tpm = calloc(1, a.data_type);
         unsigned int size = tensor_size(a.shape, a.rank);
-        for (unsigned int i = 0; i < size; ++i) SCALAR_SUM(tmp, SCALAR_ABS(tpm, CAST_PTR_AT_INDEX(a.data, i, a.data_type), a.data_type), tmp, a.data_type);
-        SCALAR_POW(tmp, tmp, SCALAR_DIV(b.data, ASSIGN(tpm, 1.0L, a.data_type), b.data, a.data_type), a.data_type);
+        for (unsigned int i = 0; i < size; ++i) SCALAR_SUM(tmp, SCALAR_POW(tpm, SCALAR_ABS(tpm, CAST_PTR_AT_INDEX(a.data, i, a.data_type), a.data_type), b.data, a.data_type), tmp, a.data_type);
+        SCALAR_POW(tmp, tmp, SCALAR_DIV(tpm, ASSIGN(tpm, 1.0L, a.data_type), b.data, a.data_type), a.data_type);
         fill_tensor(tmp, temp);
         DEALLOCATE_PTRS(tmp, tpm);
     }
