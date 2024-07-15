@@ -207,6 +207,7 @@ void derive_op(GradNode* node, GradNode* child) {
                 ASSIGN(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), 1.0L, node -> derived_value.data_type);
             }
             free(val);
+            MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
             break;
         }
 
