@@ -226,7 +226,7 @@ Tensor* copy_tensor(Tensor* dest, Tensor src) {
 }
 
 Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
-    const bool is_special_operand_flag = (op_flag == EXP) || (op_flag == TANH) || (op_flag == POW) || (op_flag == LOG) || (op_flag == CONJUGATE) || (op_flag == DOT);
+    const bool is_special_operand_flag = (op_flag == EXP) || (op_flag == TANH) || (op_flag == POW) || (op_flag == LOG) || (op_flag == ABS) || (op_flag == CONJUGATE) || (op_flag == DOT);
     ASSERT(!is_valid_enum(op_flag, (unsigned char*) operators_flags, ARR_SIZE(operators_flags)), "INVALID_OPERATOR");
     ASSERT(!is_special_operand_flag && (a.rank != b.rank), "DIM_MISMATCH");
     ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");

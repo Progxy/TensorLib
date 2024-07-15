@@ -10,6 +10,7 @@
 #define NODE_DERIVED_TENSOR(node) CAST_PTR(node, GradNode) -> derived_value
 #define IS_DENOMINATOR(parent, child) parent == child -> parents[1]
 #define NODE_TENSOR(node) CAST_PTR(node, GradNode) -> value
+#define DERIVE_NODE_REVERSE(node) derive_r_node(node, TRUE)
 
 // TENSOR FUNCTIONS OPERATIONS
 #define TENSOR_GRAPH_POW(c, a, val) graph_op(c, a, (Tensor) {.data = val, .data_type = (a).data_type}, POW)
@@ -17,6 +18,7 @@
 #define TENSOR_GRAPH_SQRT(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, SQRT)
 #define TENSOR_GRAPH_EXP(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, EXP)
 #define TENSOR_GRAPH_LOG(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, LOG)
+#define TENSOR_GRAPH_ABS(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, ABS)
 
 // TENSORS OPERATIONS
 #define TENSOR_GRAPH_MUL(c, a, b) graph_op(c, a, b, MULTIPLICATION)
@@ -90,7 +92,7 @@ Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
     alloc_grad_graph_node(a.data_type, c);
     CAST_PTR(c -> grad_node, GradNode) -> operation = operation; 
     add_child(c -> grad_node, a.grad_node);
-    if (operation == EXP || operation == TANH || operation == LOG) return c;
+    if (operation == EXP || operation == TANH || operation == LOG || operation == ABS) return c;
     else if (operation == POW) {
         CAST_PTR(c -> grad_node, GradNode) -> exp = calloc(1, a.data_type);
         mem_copy(CAST_PTR(c -> grad_node, GradNode) -> exp, b.data, b.data_type, 1);
@@ -212,7 +214,7 @@ void derive_op(GradNode* node, GradNode* child) {
             unsigned int size = TENSOR_SIZE(node -> derived_value);
             for (unsigned int i = 0; i < size; ++i) {
                 if (IS_NEGATIVE(CAST_PTR_AT_INDEX(node -> value -> data, i, node -> value -> data_type), node -> value -> data_type)) ASSIGN(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), -1.0L, node -> derived_value.data_type); 
-                else if (IS_POSITIVE(CAST_PTR_AT_INDEX(node -> value -> data, i, node -> value -> data_type), node -> value -> data_type)) ASSIGN(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), -1.0L, node -> derived_value.data_type); 
+                else if (IS_POSITIVE(CAST_PTR_AT_INDEX(node -> value -> data, i, node -> value -> data_type), node -> value -> data_type)) ASSIGN(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), 1.0L, node -> derived_value.data_type); 
             }
             break;
         }
