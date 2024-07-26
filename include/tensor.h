@@ -227,13 +227,11 @@ Tensor* copy_tensor(Tensor* dest, Tensor src) {
 }
 
 Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
-    const bool is_special_operand_flag = (op_flag == EXP) || (op_flag == TANH) || (op_flag == POW) || (op_flag == LOG) || (op_flag == ABS) || (op_flag == NORM) || (op_flag == CONJUGATE) || (op_flag == DOT);
+    const bool is_special_operand_flag = (op_flag == EXP) || (op_flag == TANH) || (op_flag == POW) || (op_flag == LOG) || (op_flag == ABS) || (op_flag == NORM) || (op_flag == SOFTMAX) || (op_flag == CONJUGATE) || (op_flag == DOT);
     ASSERT(!is_valid_enum(op_flag, (unsigned char*) operators_flags, ARR_SIZE(operators_flags)), "INVALID_OPERATOR");
     ASSERT(!is_special_operand_flag && (a.rank != b.rank), "DIM_MISMATCH");
     ASSERT(a.data_type != b.data_type, "DATA_TYPE_MISMATCH");
-    for (unsigned int i = 0; !is_special_operand_flag && (i < a.rank); ++i) {
-        ASSERT(a.shape[i] != b.shape[i], "SHAPE_MISMATCH");
-    }
+    for (unsigned int i = 0; !is_special_operand_flag && (i < a.rank); ++i) ASSERT(a.shape[i] != b.shape[i], "SHAPE_MISMATCH");
     
     Tensor temp = alloc_tensor(a.shape, a.rank, a.data_type);
     unsigned int size = tensor_size(a.shape, a.rank);
@@ -274,6 +272,11 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         SCALAR_POW(tmp, tmp, SCALAR_DIV(tpm, ASSIGN(tpm, 1.0L, a.data_type), b.data, a.data_type), a.data_type);
         fill_tensor(tmp, temp);
         DEALLOCATE_PTRS(tmp, tpm);
+    } else if (op_flag == SOFTMAX) {
+        Tensor norm_tensor = empty_tensor(a.data_type);
+        NORM_TENSOR(&norm_tensor, a);
+        DIVIDE_TENSOR(&temp, a, norm_tensor);
+        DEALLOCATE_TENSORS(norm_tensor);
     }
     else if (op_flag == POW) for (unsigned int i = 0; i < size; ++i) SCALAR_POW(CAST_PTR_AT_INDEX(temp.data, i, temp.data_type), CAST_PTR_AT_INDEX(a.data, i, temp.data_type), b.data, temp.data_type);  
     else if (is_special_operand_flag) for (unsigned int i = 0; i < size; ++i) CAST_AND_SINGLE_OP_INDEX(a.data, temp.data, i, temp.data_type, op_flag);

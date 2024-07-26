@@ -243,6 +243,18 @@ void derive_op(GradNode* node, GradNode* child) {
             }
             DEALLOCATE_PTRS(temp, zero);
             MULTIPLY_TENSOR(&(node -> derived_value), child -> derived_value, node -> derived_value);
+            break;
+        }
+        
+        case SOFTMAX: {
+            unsigned int row = node -> derived_value.shape[node -> derived_value.rank - 1];
+            unsigned int size = TENSOR_SIZE(node -> derived_value);
+            void* temp = (void*) calloc(1, node -> derived_value.data_type);
+            for (unsigned int i = 0; i < size; ++i) {
+                if (!(size % row)) SCALAR_MUL(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), CAST_PTR_AT_INDEX(child -> value -> data, i, child -> value -> data_type), SCALAR_SUB(temp, ASSIGN(temp, 1.0L, node -> derived_value.data_type), CAST_PTR_AT_INDEX(child -> value -> data, i, child -> value -> data_type), node -> derived_value.data_type), node -> derived_value.data_type); 
+                //else CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type) = -(*CAST_PTR_AT_INDEX(child -> n)
+            }
+            break;
         }
     }
     return;

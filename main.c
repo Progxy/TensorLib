@@ -9,20 +9,24 @@ void test_gelu();
 #define DERIVED_VALUE(node, type) CAST_PTR(DERIVED_TENSOR(node).data, type)
 
 int main() {
-    unsigned int shape[] = {2, 2};
-    float data[] = {1, -3, 2, -4};
-    Tensor x = alloc_tensor(shape, ARR_SIZE(shape), FLOAT_32);
-    set_tensor(data, x);
-    alloc_grad_graph_node(FLOAT_32, &x);
-    
-    Tensor c;
-    EMPTY_TENSORS(x.data_type, &c);
+    unsigned int shape[] = {4, 1};
+    float value = 1.0f;
 
-    float val = 2.0f;
-    TENSOR_GRAPH_NORM(&c, x, &val);
-    PRINT_TENSOR(c, "\t");
-    DERIVE_NODE_REVERSE(c.grad_node);
+    Tensor x;
+    alloc_tensor_grad_graph_filled(x, shape, ARR_SIZE(shape), FLOAT_32, &value);
+    
+    Tensor a, b, c, d;
+    EMPTY_TENSORS(x.data_type, &a, &b, &c, &d);
+
+    float val = 1.0f;
+    TENSOR_GRAPH_EXP(&a, x);
+    TENSOR_GRAPH_NORM(&b, a, &val);
+    TENSOR_GRAPH_DIV(&d, a, b);
+    PRINT_TENSOR(d, "\t");
+    DERIVE_NODE_REVERSE(d.grad_node);
     PRINT_TENSOR(DERIVED_TENSOR(x.grad_node), "\t");
+
+    DEALLOCATE_GRAD_GRAPHS(x.grad_node);
 
     // test_sigmoid();
     // test_gelu();

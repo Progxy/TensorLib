@@ -258,6 +258,11 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             SCALAR_POW(res, SCALAR_ABS(res, a, data_type), b, data_type);
             break;
         }
+
+        case SOFTMAX: {
+            ASSERT(TRUE, "Can't calculate on single values the SOFTMAX function");
+            break;
+        }
     }
 
     return res;
