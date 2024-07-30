@@ -15,15 +15,12 @@ int main() {
     Tensor x;
     alloc_tensor_grad_graph_filled(x, shape, ARR_SIZE(shape), FLOAT_32, &value);
     
-    Tensor a, b, c, d;
-    EMPTY_TENSORS(x.data_type, &a, &b, &c, &d);
+    Tensor a;
+    EMPTY_TENSORS(x.data_type, &a);
 
-    float val = 1.0f;
-    TENSOR_GRAPH_EXP(&a, x);
-    TENSOR_GRAPH_NORM(&b, a, &val);
-    TENSOR_GRAPH_DIV(&d, a, b);
-    PRINT_TENSOR(d, "\t");
-    DERIVE_NODE_REVERSE(d.grad_node);
+    TENSOR_GRAPH_SOFTMAX(&a, x);
+    PRINT_TENSOR(a, "\t");
+    DERIVE_NODE_REVERSE(a.grad_node);
     PRINT_TENSOR(DERIVED_TENSOR(x.grad_node), "\t");
 
     DEALLOCATE_GRAD_GRAPHS(x.grad_node);

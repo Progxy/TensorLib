@@ -12,13 +12,15 @@
 #define TENSOR_SIZE(tensor) tensor_size((tensor).shape, (tensor).rank)
 
 // TENSOR FUNCTIONS OPERATIONS
+#define NORM_TENSOR(c, a, norm) op_tensor(c, a, (Tensor) {.data = norm, .data_type = (a).data_type}, NORM)
 #define POW_TENSOR(c, a, exp) op_tensor(c, a, (Tensor) {.data = exp, .data_type = (a).data_type}, POW)
 #define CONJUGATE_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, CONJUGATE)
-#define NORM_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, NORM)
+#define SOFTMAX_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, SOFTMAX)
 #define TANH_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, TANH)
 #define SQRT_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, SQRT)
 #define EXP_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, EXP)
 #define LOG_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, LOG)
+#define ABS_TENSOR(c, a) op_tensor(c, a, (Tensor) {.data_type = (a).data_type}, ABS)
 
 // TENSORS OPERATIONS
 #define MULTIPLY_TENSOR(c, a, b) op_tensor(c, a, b, MULTIPLICATION)
@@ -274,9 +276,12 @@ Tensor* op_tensor(Tensor* c, Tensor a, Tensor b, OperatorFlag op_flag) {
         DEALLOCATE_PTRS(tmp, tpm);
     } else if (op_flag == SOFTMAX) {
         Tensor norm_tensor = empty_tensor(a.data_type);
-        NORM_TENSOR(&norm_tensor, a);
+        void* val = calloc(1, a.data_type);
+        ASSIGN(val, 1.0L, a.data_type);
+        NORM_TENSOR(&norm_tensor, a, val);
         DIVIDE_TENSOR(&temp, a, norm_tensor);
         DEALLOCATE_TENSORS(norm_tensor);
+        free(val);
     }
     else if (op_flag == POW) for (unsigned int i = 0; i < size; ++i) SCALAR_POW(CAST_PTR_AT_INDEX(temp.data, i, temp.data_type), CAST_PTR_AT_INDEX(a.data, i, temp.data_type), b.data, temp.data_type);  
     else if (is_special_operand_flag) for (unsigned int i = 0; i < size; ++i) CAST_AND_SINGLE_OP_INDEX(a.data, temp.data, i, temp.data_type, op_flag);

@@ -15,6 +15,7 @@
 // TENSOR FUNCTIONS OPERATIONS
 #define TENSOR_GRAPH_NORM(c, a, val) graph_op(c, a, (Tensor) {.data = val, .data_type = (a).data_type}, NORM)
 #define TENSOR_GRAPH_POW(c, a, val) graph_op(c, a, (Tensor) {.data = val, .data_type = (a).data_type}, POW)
+#define TENSOR_GRAPH_SOFTMAX(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, SOFTMAX)
 #define TENSOR_GRAPH_TANH(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, TANH)
 #define TENSOR_GRAPH_SQRT(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, SQRT)
 #define TENSOR_GRAPH_EXP(c, a) graph_op(c, a, (Tensor) {.data_type = (a).data_type}, EXP)
@@ -93,7 +94,7 @@ Tensor* graph_op(Tensor* c, Tensor a, Tensor b, OperatorFlag operation) {
     alloc_grad_graph_node(a.data_type, c);
     CAST_PTR(c -> grad_node, GradNode) -> operation = operation; 
     add_child(c -> grad_node, a.grad_node);
-    if (operation == EXP || operation == TANH || operation == LOG || operation == ABS) return c;
+    if (operation == EXP || operation == TANH || operation == LOG || operation == ABS || operation == SOFTMAX) return c;
     else if (operation == POW || operation == NORM) {
         CAST_PTR(c -> grad_node, GradNode) -> exp = (void*) calloc(1, a.data_type);
         mem_copy(CAST_PTR(c -> grad_node, GradNode) -> exp, b.data, b.data_type, 1);
@@ -247,13 +248,25 @@ void derive_op(GradNode* node, GradNode* child) {
         }
         
         case SOFTMAX: {
-            unsigned int row = node -> derived_value.shape[node -> derived_value.rank - 1];
             unsigned int size = TENSOR_SIZE(node -> derived_value);
+            unsigned int shape[] = {size, size};
+            Tensor temp_tensor = alloc_tensor(shape, ARR_SIZE(shape), node -> derived_value.data_type);
             void* temp = (void*) calloc(1, node -> derived_value.data_type);
+            void* one = (void*) calloc(1, node -> derived_value.data_type);
+            ASSIGN(one, 1.0L, node -> derived_value.data_type);
+
             for (unsigned int i = 0; i < size; ++i) {
-                if (!(size % row)) SCALAR_MUL(CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type), CAST_PTR_AT_INDEX(child -> value -> data, i, child -> value -> data_type), SCALAR_SUB(temp, ASSIGN(temp, 1.0L, node -> derived_value.data_type), CAST_PTR_AT_INDEX(child -> value -> data, i, child -> value -> data_type), node -> derived_value.data_type), node -> derived_value.data_type); 
-                //else CAST_PTR_AT_INDEX(node -> derived_value.data, i, node -> derived_value.data_type) = -(*CAST_PTR_AT_INDEX(child -> n)
-            }
+                for (unsigned int j = 0; j < size; ++j) {
+                    if (i == j) SCALAR_MUL(CAST_PTR_AT_INDEX(temp_tensor.data, i * size + j, temp_tensor.data_type), CAST_PTR_AT_INDEX(child -> value -> data, i, child -> value -> data_type), SCALAR_SUB(temp, one, CAST_PTR_AT_INDEX(child -> value -> data, i, child -> value -> data_type), child -> value -> data_type), temp_tensor.data_type); 
+                    else SCALAR_CONJUGATE(CAST_PTR_AT_INDEX(temp_tensor.data, i * size + j, temp_tensor.data_type), SCALAR_MUL(CAST_PTR_AT_INDEX(temp_tensor.data, i * size + j, temp_tensor.data_type), CAST_PTR_AT_INDEX(child -> value -> data, j, child -> value -> data_type), CAST_PTR_AT_INDEX(child -> value -> data, i, child -> value -> data_type), temp_tensor.data_type), temp_tensor.data_type); 
+                }
+            } 
+        
+            DOT_TENSOR(&(node -> derived_value), temp_tensor, *(child -> value));
+
+            DEALLOCATE_TENSORS(temp_tensor);
+            DEALLOCATE_PTRS(temp, one);
+            
             break;
         }
     }

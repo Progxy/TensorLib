@@ -11,7 +11,7 @@
 #define DEALLOCATE_PTRS(...) deallocate_ptrs(sizeof((void*[]){__VA_ARGS__}) / sizeof(void*), __VA_ARGS__)
 #define ASSIGN(val, new_val, data_type) assign_data_type(val, (long double) new_val, data_type)
 #define ASSERT(condition, err_msg) assert(condition, #condition, __LINE__, __FILE__, err_msg)
-#define CAST_PTR_AT_INDEX(a, index, type) (CAST_PTR(a, unsigned char) + (type * index))
+#define CAST_PTR_AT_INDEX(a, index, type_size) (CAST_PTR(a, unsigned char) + (type_size * (index)))
 #define CAST_AND_OP(a, b, type, op) *CAST_PTR(a, type) op *CAST_PTR(b, type)
 #define ABS_T(x, type) (type) (x ? (long double) x > 0.0L ? x : -x : 0.0L)
 #define ARR_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
