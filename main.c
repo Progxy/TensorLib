@@ -25,8 +25,8 @@ int main() {
 
     DEALLOCATE_GRAD_GRAPHS(x.grad_node);
 
-    // test_sigmoid();
-    // test_gelu();
+    test_sigmoid();
+    test_gelu();
     return 0;
 }
 
