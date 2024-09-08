@@ -3,6 +3,8 @@
 
 #include <time.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "./types.h"
 
@@ -58,7 +60,7 @@ void mem_copy(void* dest, void* src, unsigned char size, unsigned int n);
 void mem_set(void* dest, void* src, unsigned char size, unsigned int n);
 void* sigmoid_func(void* value, void* result, DataType data_type);
 void deallocate_ptrs(int len, ...);
-void init_seed();
+void init_seed(void);
 
 /* ------------------------------------------------------------------------------------------------ */
 
@@ -91,7 +93,7 @@ bool is_valid_enum(unsigned char enum_value, unsigned char* enum_values, unsigne
     return FALSE;
 }
 
-void init_seed() {
+void init_seed(void) {
     srand(time(NULL));
     return;
 }
@@ -112,7 +114,7 @@ bool comparison_op(void* a, void* b, DataType data_type, ComparisonFlag comparis
             else if (data_type == FLOAT_128) return CAST_AND_OP(a, b, long double, ==);
             return FALSE;
         }
-        
+
         case LESS: {
             if (data_type == FLOAT_32) return CAST_AND_OP(a, b, float, <);
             else if (data_type == FLOAT_64) return CAST_AND_OP(a, b, double, <);
@@ -147,7 +149,7 @@ bool comparison_op(void* a, void* b, DataType data_type, ComparisonFlag comparis
             else if (data_type == FLOAT_128) return *CAST_PTR(a, long double) < 0.0L;
             return FALSE;
         }
-        
+
         case POSITIVE: {
             if (data_type == FLOAT_32) return *CAST_PTR(a, float) > 0.0f;
             else if (data_type == FLOAT_64) return *CAST_PTR(a, double) > 0.0;
@@ -190,7 +192,7 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = CAST_AND_OP(a, b, long double, /);
             break;
         }
-        
+
         case POW: {
             if (data_type == FLOAT_32) *CAST_PTR(res, float) = powf(*CAST_PTR(a, float), *CAST_PTR(b, float));
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = pow(*CAST_PTR(a, double), *CAST_PTR(b, double));
@@ -203,8 +205,8 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = exp(*CAST_PTR(a, double));
             else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = expl(*CAST_PTR(a, long double));
             break;
-        }        
-        
+        }
+
         case TANH: {
             if (data_type == FLOAT_32) *CAST_PTR(res, float) = tanhf(*CAST_PTR(a, float));
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = tanh(*CAST_PTR(a, double));
@@ -231,8 +233,8 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = MAX(*CAST_PTR(a, double), *CAST_PTR(b, double));
             else if (data_type == FLOAT_128) *CAST_PTR(res, long double) = MAX(*CAST_PTR(a, long double), *CAST_PTR(b, long double));
             break;
-        }        
-        
+        }
+
         case MIN: {
             if (data_type == FLOAT_32) *CAST_PTR(res, float) = MIN(*CAST_PTR(a, float), *CAST_PTR(b, float));
             else if (data_type == FLOAT_64) *CAST_PTR(res, double) = MIN(*CAST_PTR(a, double), *CAST_PTR(b, double));
