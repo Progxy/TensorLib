@@ -2,11 +2,15 @@
 #define _AUTOGRAD_H_
 
 #include "./tensor.h"
+#include "types.h"
+#include <time.h>
 
-#define alloc_tensor_grad_graph_filled(tensor, shape, rank, data_type, val) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), fill_tensor(val, tensor), &tensor))
-#define alloc_tensor_grad_graph(tensor, shape, rank, data_type) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), &tensor))
+#define ALLOC_TENSOR_GRAD_GRAPH_FILLED(tensor, shape, rank, data_type, val) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), fill_tensor(val, tensor), &tensor))
+#define ALLOC_TENSOR_GRAD_GRAPH(tensor, shape, rank, data_type) alloc_grad_graph_node(data_type, (tensor = alloc_tensor(shape, rank, data_type), &tensor))
 #define DEALLOCATE_GRAD_SINGLE_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) TRUE, __VA_ARGS__)
 #define DEALLOCATE_GRAD_GRAPHS(...) deallocate_grad_graphs(sizeof((GradNode*[]){__VA_ARGS__}) / sizeof(GradNode*), (int) FALSE, __VA_ARGS__)
+#define FORWARD_PASS(node) forward_pass((set_update_flag(FALSE, (node)), ((GradNode*)(node)) -> is_value_updated = TRUE, (node)))
+#define OTHER_PARENT(node, parent) ((node) -> parents[0] == (parent) ? (node) -> parents[1] : (node) -> parents[0])
 #define NODE_DERIVED_TENSOR(node) CAST_PTR(node, GradNode) -> derived_value
 #define IS_DENOMINATOR(parent, child) parent == child -> parents[1]
 #define NODE_TENSOR(node) CAST_PTR(node, GradNode) -> value
@@ -33,7 +37,11 @@
 
 void alloc_grad_graph_node(DataType data_type, Tensor* value) {
     GradNode* node = (GradNode*) calloc(1, sizeof(GradNode));
+    node -> is_value_updated = FALSE;
+    node -> operation = NO_OP;
     node -> children = NULL;
+    node -> parents = NULL;
+    node -> parents_count = 0;
     node -> value = (Tensor*) calloc(1, sizeof(Tensor));
     copy_tensor(node -> value, *value);
     node -> exp = NULL;
@@ -269,6 +277,10 @@ void derive_op(GradNode* node, GradNode* child) {
 
             break;
         }
+
+        case NO_OP: {
+            break;
+        }
     }
     return;
 }
@@ -325,15 +337,60 @@ GradNode* get_sink(GradNode* node) {
 }
 
 void forward_pass(GradNode* node) {
-    GradNode* child = node -> children[0];
+    for (unsigned int i = 0; i < node -> children_count; ++i) {
+        GradNode* child = node -> children[i];
 
-    OperatorFlag op_flag = child -> operation;
-    if (op_flag == TANH || op_flag == EXP || op_flag == LOG) op_tensor(child -> value, *(node -> value), (Tensor) {.data_type = node -> derived_value.data_type}, op_flag);
-    else if (op_flag == POW || op_flag == SQRT) op_tensor(child -> value, *(node -> value), (Tensor) {.data = child -> exp, .data_type = node -> derived_value.data_type}, op_flag);
-    else op_tensor(child -> value, *(child -> parents[0] -> value), *(child -> parents[1] -> value), op_flag);
+        if (!(child -> is_value_updated)) {
+            OperatorFlag op_flag = child -> operation;
+            if (op_flag == TANH || op_flag == EXP || op_flag == LOG) op_tensor(child -> value, *(node -> value), (Tensor) {.data_type = node -> derived_value.data_type}, op_flag);
+            else if (op_flag == POW || op_flag == SQRT) op_tensor(child -> value, *(node -> value), (Tensor) {.data = child -> exp, .data_type = node -> derived_value.data_type}, op_flag);
+            else {
+                GradNode* other_parent = OTHER_PARENT(child, node);
+                if (!(other_parent -> is_value_updated)) forward_pass(other_parent);
+                op_tensor(child -> value, *(child -> parents[0] -> value), *(child -> parents[1] -> value), op_flag);
+            }
+        }
 
-    if (child -> children_count) forward_pass(child);
+        child -> is_value_updated = TRUE;
 
+        if (child -> children_count) forward_pass(child);
+    }
+
+    return;
+}
+
+void backward_pass(GradNode* node) {
+    OperatorFlag op_flag = node -> operation;
+
+    if (op_flag == TANH || op_flag == EXP || op_flag == LOG) {
+        if (!(node -> parents[0] -> is_value_updated)) backward_pass(node -> parents[0]);
+        op_tensor(node -> value, *(node -> parents[0] -> value), (Tensor) {.data_type = node -> derived_value.data_type}, op_flag);
+    } else if (op_flag == POW || op_flag == SQRT) {
+        if (!(node -> parents[0] -> is_value_updated)) backward_pass(node -> parents[0]);
+        op_tensor(node -> value, *(node -> parents[0] -> value), (Tensor) {.data = node -> exp, .data_type = node -> derived_value.data_type}, op_flag);
+    } else if (op_flag != NO_OP) {
+        if (!(node -> parents[0] -> is_value_updated)) backward_pass(node -> parents[0]);
+        if (!(node -> parents[1] -> is_value_updated)) backward_pass(node -> parents[1]);
+        op_tensor(node -> value, *(node -> parents[0] -> value), *(node -> parents[1] -> value), op_flag);
+    }
+
+    node -> is_value_updated = TRUE;
+
+    return;
+}
+
+void set_update_flag(bool update_flag, GradNode* node) {
+    node -> is_value_updated = update_flag;
+    for (unsigned int i = 0; i < node -> children_count; ++i) set_update_flag(update_flag, node -> children[i]);
+    return;
+}
+
+void print_grad_node(GradNode* node, unsigned int depth) {
+    printf("_[%u, '%s']", depth, node -> is_value_updated ? "TRUE" : "FALSE");
+    printf("'%p'", (void*) node);
+    if (node -> children_count) printf(":\n");
+    else printf(".\n\n");
+    for (unsigned int i = 0; i < node -> children_count; ++i) print_grad_node(node -> children[i], depth + 1);
     return;
 }
 

@@ -7,7 +7,7 @@
 typedef unsigned char bool;
 
 typedef enum DataType { FLOAT_32 = sizeof(float), FLOAT_64 = sizeof(double), FLOAT_128 = sizeof(long double) } DataType;
-typedef enum OperatorFlag { SUM, SUBTRACTION, MULTIPLICATION, DIVISION, POW, EXP, TANH, DOT, SQRT, LOG, MAX, MIN, ABS, CONJUGATE, NORM, SOFTMAX } OperatorFlag;
+typedef enum OperatorFlag { NO_OP = -1, SUM, SUBTRACTION, MULTIPLICATION, DIVISION, POW, EXP, TANH, DOT, SQRT, LOG, MAX, MIN, ABS, CONJUGATE, NORM, SOFTMAX } OperatorFlag;
 typedef enum ComparisonFlag { EQUAL, LESS, LESS_OR_EQUAL, GREATER, GREATER_OR_EQUAL, NEGATIVE, POSITIVE } ComparisonFlag;
 
 const unsigned char data_types[] = { FLOAT_32, FLOAT_64, FLOAT_128 };
@@ -25,6 +25,7 @@ typedef struct Tensor {
 typedef struct GradNode {
     Tensor derived_value;
     Tensor* value;
+    bool is_value_updated;
     OperatorFlag operation;
     struct GradNode** children;
     unsigned int children_count;

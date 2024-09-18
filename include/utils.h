@@ -265,6 +265,11 @@ void* scalar_op(void* res, void* a, void* b, DataType data_type, OperatorFlag op
             ASSERT(TRUE, "Can't calculate on single values the SOFTMAX function");
             break;
         }
+
+        case NO_OP: {
+            ASSERT(TRUE, "Can't calculate NO_OP");
+            break;
+        }
     }
 
     return res;
